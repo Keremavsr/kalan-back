@@ -25,7 +25,7 @@ from kalan.amounts import month_key
 from kalan.api.errors import ApiError, error_response, install
 from kalan.config import Config
 from kalan.imports import ImportFileError, Mapping, import_plans, parse_import
-from kalan.models import Direction, InstallmentInfo, ManualInstallment, Statement, Transaction
+from kalan.models import Direction, FixedCost, InstallmentInfo, ManualInstallment, Statement, Transaction
 from kalan.parsers import ParseError, StatementParser, UnknownFormatError
 from kalan.pdf import extract_text
 from kalan.pipeline import parse_text
@@ -58,6 +58,16 @@ class SettingsUpdate(_Body):
     locale: Literal["tr", "en"] | None = None
     base_currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
     months_ahead: int | None = Field(default=None, ge=1, le=60)
+
+
+class FixedCostIn(_Body):
+    name: str = Field(min_length=1, max_length=120)
+    amount: int = Field(gt=0)
+    currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
+    day: int = Field(ge=1, le=31)
+    start: str = Field(pattern=MONTH_PATTERN)
+    end: str | None = Field(default=None, pattern=MONTH_PATTERN)
+    category: str | None = Field(default=None, max_length=40)
 
 
 class InstallmentIn(_Body):
@@ -400,6 +410,31 @@ def create_app(
             raise ApiError(404, "import_not_found", "No import with this id.", {"id": import_id})
         return Response(status_code=204)
 
+    # -- fixed costs ------------------------------------------------------------------------------
+
+    @app.post("/fixed-costs", status_code=201)
+    def post_fixed_cost(body: FixedCostIn) -> dict[str, Any]:
+        if body.end is not None and body.end < body.start:
+            raise ApiError(422, "invalid_period", "end must not be before start.")
+        cost = FixedCost(
+            id=StatementParser.stable_id("fc", uuid.uuid4().hex),
+            currency=body.currency or store.get_settings().base_currency,
+            **body.model_dump(exclude={"currency"}),
+        )
+        saved = store.add_fixed_cost(cost)
+        log.info("fixed cost %s stored", saved.id)
+        return saved.model_dump(mode="json")
+
+    @app.get("/fixed-costs")
+    def list_fixed_costs() -> dict[str, Any]:
+        return {"items": [c.model_dump(mode="json") for c in store.fixed_costs()]}
+
+    @app.delete("/fixed-costs/{cost_id}", status_code=204)
+    def delete_fixed_cost(cost_id: str) -> Response:
+        if not store.delete_fixed_cost(cost_id):
+            raise ApiError(404, "fixed_cost_not_found", "No fixed cost with this id.", {"id": cost_id})
+        return Response(status_code=204)
+
     # -- calculations -----------------------------------------------------------------------------
 
     @app.get("/installments/schedule")
@@ -420,6 +455,7 @@ def create_app(
             months=months or store.get_settings().months_ahead,
             cut_off_day=cut_off_day,
             imported=imported,
+            fixed_costs=store.fixed_costs(),
         )
         if not statements and not store.manual_plans() and not imported:
             result.currency = store.get_settings().base_currency

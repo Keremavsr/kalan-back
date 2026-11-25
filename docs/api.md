@@ -1,7 +1,8 @@
 # kalan API contract v0.2.0
 
 Changes from v0.1.1: AI fallback reader and `needs_review` on statements, `POST /statements/{id}/template-draft`
-(see "Statements"); CSV/OFX/QIF imports (`source: "import"`); `POST /simulate/installment`; `GET /alerts`. Every v0.1.1 route and field is unchanged.
+(see "Statements"); CSV/OFX/QIF imports (`source: "import"`); `POST /simulate/installment`; `GET /alerts`;
+fixed costs (`/fixed-costs`, schedule `fixed` series). Every v0.1.1 route and field is unchanged.
 
 Back end: `kalan-back` (Python, FastAPI). Listens on `127.0.0.1:8765` only. JSON, UTF-8.
 Front end: `kalan-front` (separate repo) talks to it only over HTTP. Base URL configurable (`VITE_KALAN_API`, default `http://127.0.0.1:8765`).
@@ -83,6 +84,12 @@ however many months were imported). Do not import a period you also uploaded as 
 - `GET /transactions?month=2026-09&source=manual|statement` (both filters optional) -> `{"items":[Transaction]}`, by date.
 - `DELETE /transactions/{id}` (manual only) -> 204
 
+## Fixed costs (v0.2.0)
+- `POST /fixed-costs` body `{"name":"Rent","amount":1500000,"currency":"TRY"|null,"day":1-31,"start":"2026-01","end":"2026-12"|null,"category":null}`
+  -> 201 `FixedCost` (same fields plus `id`; `currency` defaults to the base currency; `day` is clipped to short
+  months; `end` is inclusive). 422 `invalid_period` if `end` is before `start`. The name is redacted.
+- `GET /fixed-costs` -> `{"items":[FixedCost]}`. `DELETE /fixed-costs/{id}` -> 204, 404 `fixed_cost_not_found`.
+
 ## Calculations (computed by code, never by the model)
 - `GET /installments/schedule?months=12` ->
 ```json
@@ -92,6 +99,9 @@ however many months were imported). Do not import a period you also uploaded as 
 Each plan also has `"source":"statement|manual|import"`. Every schedule item and every plan also carries `"breakdown":{"principal":int,"interest":int,"bsmv":int,"kkdf":int}` or `null`
 (null for plain purchases; for a cash advance the four parts of that month / of the remaining total, summing to `amount` /
 `total_remaining`).
+- The schedule also carries `"fixed":{"kind":"fixed","months":[{"month","total","items":[{"fixed_cost_id","name","amount","currency","date"}]}]}`
+  (v0.2.0) over the same months: recurring fixed costs, never added to `months[].total`. `fixed.months[].total`
+  sums only items in the schedule currency.
 - `GET /summary/monthly?month=2026-09` -> always 200 (a month with no data returns zeros, empty `by_category` and empty `statement_ids`, never 404) `{"month","currency","total_spend","total_credit","by_category":[{"category","amount","share":"0.18"}],"previous_month":{"total_spend","change":"0.12"}|null,"statement_ids":[...]}`
 - `GET /subscriptions` -> `{"items":[{"merchant","amount_last","amount_previous","currency","months_seen":["2026-08","2026-09"],"price_change":"0.20"|null}]}` (recurring = same normalized merchant in >= 2 consecutive months with amounts within 25% or flagged by the model).
 

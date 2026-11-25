@@ -19,6 +19,7 @@ Everything here is integer arithmetic on minor units.
 
 from __future__ import annotations
 
+import calendar
 import re
 from collections import defaultdict
 from dataclasses import dataclass
@@ -28,7 +29,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from kalan.amounts import add_months, month_key, months_between
-from kalan.models import ManualInstallment, Statement, Transaction
+from kalan.models import FixedCost, ManualInstallment, Statement, Transaction
 
 DEFAULT_MONTHS = 12
 
@@ -77,11 +78,45 @@ class PlanSummary(BaseModel):
     last_statement_id: str | None = None
 
 
+class FixedItem(BaseModel):
+    fixed_cost_id: str
+    name: str
+    amount: int
+    currency: str
+    date: date
+
+
+class FixedMonth(BaseModel):
+    month: str
+    total: int = Field(description="Sum of the items in the schedule currency")
+    items: list[FixedItem] = Field(default_factory=list)
+
+
+class FixedSeries(BaseModel):
+    kind: Literal["fixed"] = "fixed"
+    months: list[FixedMonth] = Field(default_factory=list)
+
+
 class Schedule(BaseModel):
     currency: str
     start_month: str
     months: list[ScheduleMonth]
     plans: list[PlanSummary]
+    fixed: FixedSeries = Field(default_factory=FixedSeries, description="Recurring fixed costs, never in months")
+
+
+def fixed_series(costs: list[FixedCost], window: list[str], currency: str) -> FixedSeries:
+    out = []
+    for mk in window:
+        y, m = (int(p) for p in mk.split("-"))
+        items = [
+            FixedItem(fixed_cost_id=c.id, name=c.name, amount=c.amount, currency=c.currency,
+                      date=date(y, m, min(c.day, calendar.monthrange(y, m)[1])))
+            for c in sorted(costs, key=lambda c: (c.day, c.name, c.id))
+            if months_between(c.start, mk) >= 0 and (c.end is None or months_between(mk, c.end) >= 0)
+        ]
+        out.append(FixedMonth(month=mk, total=sum(i.amount for i in items if i.currency == currency), items=items))
+    return FixedSeries(months=out)
 
 
 @dataclass
@@ -216,6 +251,7 @@ def build_schedule(
     cut_off_day: int | None = None,
     today: date | None = None,
     imported: list[ManualInstallment] | None = None,
+    fixed_costs: list[FixedCost] | None = None,
 ) -> Schedule:
     """Project committed installments for ``months`` months starting at ``start_month``.
 
@@ -282,4 +318,5 @@ def build_schedule(
         months=[ScheduleMonth(month=mk, total=sum(i.amount for i in items), items=items) for mk, items in
                 month_items.items()],
         plans=sorted(plans, key=lambda p: (p.ends, p.plan_id)),
+        fixed=fixed_series(fixed_costs or [], window, currency),
     )

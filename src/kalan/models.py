@@ -144,4 +144,17 @@ class ManualInstallment(_Model):
     kind: Literal["purchase", "cash_advance"] = "purchase"
 
 
+class FixedCost(_Model):
+    """A recurring fixed cost (rent, dues) paid every month on ``day`` from ``start`` to ``end``."""
+
+    id: str
+    name: str = Field(min_length=1, max_length=120)
+    amount: int = Field(gt=0, description="Minor units")
+    currency: str = Field(default="TRY", pattern=r"^[A-Z]{3}$")
+    day: int = Field(ge=1, le=31, description="Day of the month; clipped to the month's length")
+    start: str = Field(pattern=r"^\d{4}-(0[1-9]|1[0-2])$", description="First month, YYYY-MM")
+    end: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$", description="Last month, inclusive")
+    category: str | None = None
+
+
 Reconciliation.model_rebuild()

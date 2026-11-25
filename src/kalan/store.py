@@ -21,7 +21,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from kalan.amounts import month_key
-from kalan.models import ManualInstallment, Statement, StatementSummary, Transaction
+from kalan.models import FixedCost, ManualInstallment, Statement, StatementSummary, Transaction
 from kalan.redact import redact_text
 
 _MIGRATIONS_PACKAGE = "kalan.migrations"
@@ -272,6 +272,24 @@ class Store:
     def delete_import(self, import_id: str) -> bool:
         with self._tx() as con:
             return con.execute("DELETE FROM imports WHERE id = ?", (import_id,)).rowcount > 0
+
+    # -- fixed costs ------------------------------------------------------------------------------
+
+    def add_fixed_cost(self, cost: FixedCost) -> FixedCost:
+        cost = cost.model_copy(update={"name": redact_text(cost.name)})
+        with self._tx() as con:
+            con.execute("INSERT INTO fixed_costs (id, data, created_at) VALUES (?, ?, ?)",
+                        (cost.id, json.dumps(cost.model_dump(mode="json"), ensure_ascii=False), now_iso()))
+        return cost
+
+    def fixed_costs(self) -> list[FixedCost]:
+        with self._connect() as con:
+            rows = con.execute("SELECT data FROM fixed_costs ORDER BY created_at, id").fetchall()
+            return [FixedCost.model_validate_json(r["data"]) for r in rows]
+
+    def delete_fixed_cost(self, cost_id: str) -> bool:
+        with self._tx() as con:
+            return con.execute("DELETE FROM fixed_costs WHERE id = ?", (cost_id,)).rowcount > 0
 
     def loose_transactions(self) -> list[Transaction]:
         """Manual and imported rows: everything that is not part of a statement."""

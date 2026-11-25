@@ -37,7 +37,7 @@ from kalan.models import InstallmentInfo, ManualInstallment, Transaction, Transa
 from kalan.parsers.base import StatementParser
 from kalan.parsers.template import KindRule
 from kalan.redact import redact_text
-from kalan.text import fold, merchant_key, normalize_merchant
+from kalan.text import fold, merchant_fields, merchant_key
 
 ImportFormat = Literal["csv", "ofx", "qif"]
 SignRule = Literal["negative_debit", "positive_debit"]
@@ -290,7 +290,7 @@ def build_transactions(raws: list[_Raw], currency: str, rules: _Rules) -> list[T
             direction=direction,  # type: ignore[arg-type]
             kind=kind,
             installment=info,
-            merchant=normalize_merchant(r.description) if kind in ("purchase", "installment", "refund") else None,
+            **(merchant_fields(r.description) if kind in ("purchase", "installment", "refund") else {}),  # type: ignore[arg-type]
             source="import",
         ))
     return out

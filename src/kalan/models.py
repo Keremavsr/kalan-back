@@ -74,6 +74,13 @@ class Transaction(_Model):
         default=None,
         description="Sub-line printed under the row (bill reference, installment note, exchange note), redacted",
     )
+    merchant_unreadable: bool = Field(
+        default=False, description="The printed name was only an address: no merchant name could be read"
+    )
+    # Filled when read from the store (never stored with the row):
+    card_id: str | None = Field(default=None, description="Card of the statement row; null for loose rows")
+    card_label: str | None = None
+    category_source: Literal["rule", "model", "user"] | None = None
 
     @property
     def signed_amount(self) -> int:
@@ -140,6 +147,8 @@ class StatementSummary(_Model):
                                    "does not reconcile"
     )
     review: list[GateIssue] = Field(default_factory=list, description="Soft save-gate findings")
+    card_id: str | None = Field(default=None, description="Filled when read from the store")
+    card_label: str | None = None
 
 
 class Statement(StatementSummary):

@@ -52,6 +52,9 @@ class Rule:
 class BuiltinRules:
     processors: re.Pattern[str]
     tails: frozenset[str]
+    address: frozenset[str]
+    stems: tuple[tuple[str, str], ...]
+    brands: tuple[tuple[str, str], ...]
     kinds: dict[str, str]
     rules: tuple[Rule, ...]
 
@@ -60,15 +63,23 @@ class BuiltinRules:
 def builtin() -> BuiltinRules:
     data = yaml.safe_load(RULES_FILE.read_text(encoding="utf-8"))
     merchant = data["merchant"]
-    processors = sorted((fold(p) for p in merchant["processors"]), key=len, reverse=True)
+    processors = sorted((fold(str(p)) for p in merchant["processors"]), key=len, reverse=True)
+    bare = sorted((fold(str(p)) for p in merchant.get("bare_processors", [])), key=len, reverse=True)
+    every = sorted(set(processors) | set(bare), key=len, reverse=True)
+    starred = r"(?:" + "|".join(map(re.escape, every)) + r")\s*\*\s*"
+    loose = r"(?:" + "|".join(map(re.escape, bare)) + r")(?:\s*[-.:/]\s*|\s+)" if bare else None
     kinds = {k: v for k, v in data["kinds"].items()}
     for category in kinds.values():
         if category not in CATEGORIES:
             raise ValueError(f"categories.yaml: unknown category {category!r}")
     rules = tuple(Rule.of(str(p), category) for category, phrases in data["rules"].items() for p in phrases)
     return BuiltinRules(
-        processors=re.compile(r"^(?:" + "|".join(map(re.escape, processors)) + r")\s*\*\s*", re.IGNORECASE),
+        processors=re.compile(r"^(?:" + starred + (f"|{loose}" if loose else "") + r")", re.IGNORECASE),
         tails=frozenset(fold(str(t)) for t in merchant["tails"]),
+        address=frozenset(fold(str(t)) for t in merchant.get("address", [])),
+        stems=_stem_table(data.get("stems", []), rules),
+        brands=tuple(sorted({(r.folded, r.category) for r in rules if " " not in r.folded and r.folded.isalpha()
+                             and len(r.folded) >= STEM_MIN}, key=lambda kv: (-len(kv[0]), kv[0]))),
         kinds=kinds,
         rules=rules,
     )
@@ -81,7 +92,9 @@ _NUMBER_TOKEN = re.compile(r"[\W\d_]*\d{3,}[\W\d_]*|.*\d{4,}.*")
 def clean_merchant(key: str) -> str:
     """``PAYTR *ORNEK KAFE 000123 ISTANBUL TR`` -> ``ORNEK KAFE``. Never returns an empty name for a non-empty key."""
     b = builtin()
-    text = b.processors.sub("", key.strip())
+    text = key.strip()
+    for _ in range(2):  # "PAYTR *IYZICO*SHOP": a processor may sit behind another
+        text = b.processors.sub("", text, count=1)
     text = text.replace("*", " ")
     text = _NUMBER_SEGMENT.sub("", text)
     tokens = text.split()
@@ -96,6 +109,60 @@ def clean_merchant(key: str) -> str:
             break
     name = " ".join(tokens).strip(" -/.,")
     return name or key.strip()
+
+
+_NUMBERISH = re.compile(r"^(?:no[:.]?)?\d[\d/:.-]*$")
+
+
+def _address_token(word: str, b: BuiltinRules) -> str | None:
+    """``"marker"`` for a street/district marker (CD, SK, MAH ...), ``"place"`` for a city or district,
+    ``"number"`` for a door number, else None."""
+    w = fold(word).strip(".,:;-/()")
+    if not w:
+        return "number"
+    if w in b.address:
+        return "marker"
+    if w in b.tails:
+        return "place"
+    if _NUMBERISH.match(w):
+        return "number"
+    return None
+
+
+def merchant_name(key: str) -> str | None:
+    """:func:`clean_merchant` without address parts; None when only an address is left (unreadable).
+
+    ``ORNEK KAFE BAGDAT CD NO:5`` -> ``ORNEK KAFE``; ``ISTANBUL KADIKOY BAGDAT CD`` -> None. The word right before a
+    street marker is the street's name. The first run of words that are not address parts is the merchant.
+    """
+    name = clean_merchant(key)
+    if not name:
+        return None
+    b = builtin()
+    tokens = name.split()
+    kinds = [_address_token(t, b) for t in tokens]
+    if not any(k == "marker" for k in kinds) and not all(k is not None for k in kinds):
+        return name  # no street marker and some real word: keep the cleaned name as it is
+    address = [k is not None for k in kinds]
+    for i, k in enumerate(kinds):
+        if k == "marker" and i > 0 and kinds[i - 1] is None:
+            address[i - 1] = True  # the street's own name ("BAGDAT" in "BAGDAT CD")
+    runs: list[list[str]] = []
+    current: list[str] = []
+    for token, is_address in zip(tokens, address, strict=True):
+        if is_address:
+            if current:
+                runs.append(current)
+            current = []
+        else:
+            current.append(token)
+    if current:
+        runs.append(current)
+    for run in runs:
+        text = " ".join(run).strip(" -/.,")
+        if re.search(r"[^\W\d_]{2,}", text):
+            return text
+    return None
 
 
 def _best(rules: Iterable[Rule], text: str) -> Rule | None:
@@ -115,6 +182,49 @@ def categorize(tx: Transaction, user_rules: Iterable[Rule] = ()) -> tuple[str, C
     hit = _best(b.rules, text)
     if hit is not None:
         return hit.category, "builtin"
+    stem = _stem_hit(text, b)
+    if stem is not None:
+        return stem, "builtin"
+    return None
+
+
+STEM_MIN = 5
+_BRAND_TAIL = re.compile(r"[\W\d_]*(?:com|comtr|tr|ab|as|ltd|sti|inc|llc|bv|gmbh|online|store|shop|premium|plus|tv|"
+                         r"go|app|pay|bill|ticaret|tic|magazacilik|magazalari|gida|elektronik|turizm|"
+                         r"iletisim)?[\W\d_]*")
+
+
+def _stem_table(words: list[str], rules: tuple[Rule, ...]) -> tuple[tuple[str, str], ...]:
+    """``(stem, category)`` longest first; each stem's category is the one of the rule with the same phrase."""
+    by_phrase = {r.folded: r.category for r in rules}
+    out = {}
+    for w in words:
+        folded = fold(str(w))
+        if folded not in by_phrase:
+            raise ValueError(f"categories.yaml: stem {w!r} is not a rule phrase")
+        out[folded] = by_phrase[folded]
+    return tuple(sorted(out.items(), key=lambda kv: (-len(kv[0]), kv[0])))
+
+
+def _stem_hit(text: str, b: BuiltinRules) -> str | None:
+    """Fallback for generic words the printer glued or cut (``stems`` in ``categories.yaml``): a token that starts
+    or ends with a stem (``MARKETCILIK``, ``ORNEKPASTANE``), or a last token of five or more letters cut from one
+    (``RESTORA``)."""
+    tokens = [t.strip(".,:;-/()'") for t in text.split()]
+    tokens = [t for t in tokens if t]
+    if not tokens:
+        return None
+    last = tokens[-1]
+    for word, category in b.brands:  # "SPOTIFYAB", "MIGROS5M", "TRENDYOLCOM": a brand with a known tail
+        for t in tokens:
+            if t != word and t.startswith(word) and _BRAND_TAIL.fullmatch(t[len(word):]):
+                return category
+    for word, category in b.stems:
+        for t in tokens:
+            if t != word and (t.startswith(word) or t.endswith(word)):
+                return category
+        if len(last) >= STEM_MIN and word.startswith(last) and last.isalpha():
+            return category
     return None
 
 

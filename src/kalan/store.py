@@ -20,13 +20,18 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from kalan import cards
 from kalan.amounts import month_key
 from kalan.models import FixedCost, Locale, ManualInstallment, Statement, StatementSummary, Transaction
 from kalan.redact import redact_text
+from kalan.text import merchant_fields
 
 _MIGRATIONS_PACKAGE = "kalan.migrations"
 
 JobStatus = Literal["pending", "done", "failed"]
+READ_ONLY_TX = frozenset({"card_id", "card_label", "category_source"})
+"""Transaction fields filled when read, never stored with the row."""
+READ_ONLY_STATEMENT = frozenset({"card_id", "card_label"})
 
 
 class DuplicateStatementError(Exception):
@@ -130,7 +135,7 @@ class Store:
 
         ``redacted_text`` (AI fallback only) is kept for a later template draft.
         """
-        data = st.model_dump(mode="json", exclude={"transactions", "analysis_status"})
+        data = st.model_dump(mode="json", exclude={"transactions", "analysis_status", *READ_ONLY_STATEMENT})
         with self._tx() as con:
             row = con.execute(
                 "SELECT id FROM statements WHERE id = ? OR (bank = ? AND card_last4 IS ? AND period_start = ? "
@@ -158,7 +163,7 @@ class Store:
 
     @staticmethod
     def _insert_tx(con: sqlite3.Connection, tx: Transaction, statement_id: str | None, pos: int) -> None:
-        data = tx.model_dump(mode="json", exclude={"category"})
+        data = tx.model_dump(mode="json", exclude={"category", *READ_ONLY_TX})
         source = None if tx.category is None else ("user" if tx.source == "manual" else "rule")
         con.execute(
             "INSERT INTO transactions (id, statement_id, source, date, position, data, category, category_source) "
@@ -168,19 +173,66 @@ class Store:
         )
 
     @staticmethod
-    def _tx_from_row(row: sqlite3.Row) -> Transaction:
+    def _tx_from_row(row: sqlite3.Row, card: tuple[str, str] | None = None) -> Transaction:
         data = json.loads(row["data"])
+        for key in READ_ONLY_TX:
+            data.pop(key, None)
         data["category"] = row["category"]
+        if row["category"] is not None:
+            data["category_source"] = row["category_source"]
+        if data.get("merchant") is not None or data.get("merchant_unreadable"):
+            data.update(merchant_fields(data["description"]))  # stored rows get today's cleaner
+        if card is not None:
+            data["card_id"], data["card_label"] = card
         return Transaction.model_validate(data)
 
-    def _statement_from_row(self, con: sqlite3.Connection, row: sqlite3.Row, with_tx: bool) -> Statement:
+    def card_labels(self, con: sqlite3.Connection | None = None) -> dict[str, str]:
+        """``{card_id: label}`` of every card with a stored statement (product of its newest statement)."""
+        if con is None:
+            with self._connect() as c:
+                return self.card_labels(c)
+        rows = con.execute(
+            "SELECT bank, card_last4, json_extract(data, '$.product') AS product FROM statements "
+            "ORDER BY period_end, id"
+        ).fetchall()
+        names = self.card_names(con)
+        out: dict[str, str] = {}
+        for r in rows:
+            cid = cards.card_id(r["bank"], r["card_last4"])
+            out[cid] = cards.label(r["bank"], r["product"], r["card_last4"], names.get(cid))
+        return out
+
+    def card_names(self, con: sqlite3.Connection | None = None) -> dict[str, str]:
+        if con is None:
+            return self._get_setting(cards.NAMES_KEY) or {}
+        row = con.execute("SELECT value FROM settings WHERE key = ?", (cards.NAMES_KEY,)).fetchone()
+        return {} if row is None else (json.loads(row["value"]) or {})
+
+    def set_card_name(self, card_id: str, name: str | None) -> None:
+        names = self.card_names()
+        if name:
+            names[card_id] = redact_text(name)
+        else:
+            names.pop(card_id, None)
+        self._put_setting(cards.NAMES_KEY, names)
+
+    def _statement_from_row(
+        self, con: sqlite3.Connection, row: sqlite3.Row, with_tx: bool, labels: dict[str, str] | None = None
+    ) -> Statement:
         data = json.loads(row["data"])
+        for key in READ_ONLY_STATEMENT:
+            data.pop(key, None)
         data["analysis_status"] = row["analysis_status"]
+        labels = labels if labels is not None else self.card_labels(con)
+        cid = cards.card_id(row["bank"], row["card_last4"])
+        card = (cid, labels.get(cid) or cards.label(row["bank"], data.get("product"), row["card_last4"]))
+        data["card_id"], data["card_label"] = card
         if with_tx:
             rows = con.execute(
-                "SELECT data, category FROM transactions WHERE statement_id = ? ORDER BY position", (row["id"],)
+                "SELECT data, category, category_source FROM transactions WHERE statement_id = ? ORDER BY position",
+                (row["id"],),
             ).fetchall()
-            data["transactions"] = [self._tx_from_row(r).model_dump() for r in rows]
+            data["transactions"] = [self._tx_from_row(r, card).model_dump() for r in rows]
         return Statement.model_validate(data)
 
     def get_statement(self, statement_id: str) -> Statement | None:
@@ -192,16 +244,18 @@ class Store:
         """Newest first (by cut-off date, then upload time)."""
         with self._connect() as con:
             rows = con.execute("SELECT * FROM statements ORDER BY period_end DESC, created_at DESC, id").fetchall()
+            labels = self.card_labels(con)
             out = []
             for row in rows:
-                st = self._statement_from_row(con, row, with_tx=False)
+                st = self._statement_from_row(con, row, with_tx=False, labels=labels)
                 out.append(StatementSummary.model_validate(st.model_dump(include=set(StatementSummary.model_fields))))
             return out
 
     def all_statements(self) -> list[Statement]:
         with self._connect() as con:
             rows = con.execute("SELECT * FROM statements ORDER BY period_end, id").fetchall()
-            return [self._statement_from_row(con, row, with_tx=True) for row in rows]
+            labels = self.card_labels(con)
+            return [self._statement_from_row(con, row, with_tx=True, labels=labels) for row in rows]
 
     def delete_statement(self, statement_id: str) -> bool:
         with self._tx() as con:
@@ -233,7 +287,7 @@ class Store:
     def manual_transactions(self) -> list[Transaction]:
         with self._connect() as con:
             rows = con.execute(
-                "SELECT data, category FROM transactions WHERE source = 'manual' ORDER BY date, id"
+                "SELECT data, category, category_source FROM transactions WHERE source = 'manual' ORDER BY date, id"
             ).fetchall()
             return [self._tx_from_row(r) for r in rows]
 
@@ -247,7 +301,7 @@ class Store:
                         (import_id, fmt, now_iso()))
             for pos, tx in enumerate(txs):
                 tx = tx.model_copy(update={"description": redact_text(tx.description), "source": "import"})
-                data = tx.model_dump(mode="json", exclude={"category"})
+                data = tx.model_dump(mode="json", exclude={"category", *READ_ONLY_TX})
                 cur = con.execute(
                     "INSERT OR IGNORE INTO import_transactions (id, import_id, date, position, data, category, "
                     "category_source) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -269,7 +323,7 @@ class Store:
                     for r in rows]
 
     def import_transactions(self, import_id: str | None = None) -> list[Transaction]:
-        sql = "SELECT data, category FROM import_transactions"
+        sql = "SELECT data, category, category_source FROM import_transactions"
         args: tuple[str, ...] = ()
         if import_id is not None:
             sql, args = sql + " WHERE import_id = ?", (import_id,)
@@ -305,7 +359,8 @@ class Store:
 
     def get_transaction(self, tx_id: str) -> Transaction | None:
         with self._connect() as con:
-            row = con.execute("SELECT data, category FROM transactions WHERE id = ?", (tx_id,)).fetchone()
+            row = con.execute("SELECT data, category, category_source FROM transactions WHERE id = ?",
+                              (tx_id,)).fetchone()
             return None if row is None else self._tx_from_row(row)
 
     def delete_manual_transaction(self, tx_id: str) -> Literal["deleted", "missing", "not_manual"]:
@@ -356,7 +411,8 @@ class Store:
         with self._tx() as con:
             for table in ("transactions", "import_transactions"):
                 rows = con.execute(
-                    f"SELECT id, data, category FROM {table} WHERE category_source IS NULL OR category_source <> 'user'"
+                    f"SELECT id, data, category, category_source FROM {table} "
+                    "WHERE category_source IS NULL OR category_source <> 'user'"
                 ).fetchall()
                 for row in rows:
                     tx = self._tx_from_row(row)

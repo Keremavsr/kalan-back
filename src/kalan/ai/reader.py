@@ -29,7 +29,7 @@ from kalan.parsers.base import StatementParser
 from kalan.parsers.template import BUILTIN_DIR, Template, TemplateParser
 from kalan.reconcile import reconcile
 from kalan.redact import redact
-from kalan.text import fold, merchant_key, normalize_merchant
+from kalan.text import fold, merchant_fields, merchant_key
 
 log = logging.getLogger(__name__)
 
@@ -211,7 +211,7 @@ def to_statement(answer: AIStatement, card_last4: str | None) -> Statement:
             direction=row.sign,
             kind=kind,
             installment=installment,
-            merchant=normalize_merchant(row.description) if kind in ("purchase", "installment", "refund") else None,
+            **(merchant_fields(row.description) if kind in ("purchase", "installment", "refund") else {}),  # type: ignore[arg-type]
             source="statement",
             original_amount=abs(decimal_to_minor(row.original_amount, row.original_currency)) if foreign else None,
             original_currency=row.original_currency if foreign else None,

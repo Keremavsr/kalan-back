@@ -29,7 +29,15 @@ def tx(description: str, kind: str = "purchase", merchant: str | None = None) ->
     ("ORNEK MAGAZA KADIKOY/ISTANBUL", "ORNEK MAGAZA"),
     ("ORNEK SPOR 3/6", "ORNEK SPOR"),
     ("ORNEKPAY *ORNEKCARSI", "ORNEKPAY ORNEKCARSI"),  # unknown processor: only the star goes
-    ("ISTANBUL", "ISTANBUL"),  # never emptied
+    ("ISTANBUL", ""),  # only a city: no merchant name (merchant_unreadable)
+    ("ISTANBUL KADIKOY ORNEK CD", ""),  # only an address
+    ("ORNEK KAFE ORNEK CD NO:5 KADIKOY", "ORNEK KAFE"),  # address after the name goes
+    ("ANKARA CANKAYA ORNEK BLV ORNEK FIRIN", "ORNEK FIRIN"),  # address before the name goes
+    ("MONEYPAY ORNEK MARKET", "ORNEK MARKET"),  # unambiguous processor, no star
+    ("MONEYPAY*ORNEK MARKET ISTANBUL", "ORNEK MARKET"),
+    ("MOKA UNITED*ORNEK PASTANE", "ORNEK PASTANE"),
+    ("PARAM KAFE", "PARAM KAFE"),  # short processor names need the star
+    ("PARAM*ORNEK KAFE", "ORNEK KAFE"),
     ("ORNEK STORE 9.99 USD", "ORNEK STORE"),
 ])
 def test_merchant_names(printed, name):

@@ -46,10 +46,19 @@ def merchant_key(description: str) -> str:
 
 
 def normalize_merchant(description: str) -> str:
-    """Merchant name: :func:`merchant_key` without processor prefixes, ``*``, store numbers, city and country.
+    """:func:`merchant_key` without processor prefixes, ``*``, store numbers, city, country and address parts.
 
-    ``IYZICO*ORNEK KAFE 000123 ISTANBUL TR`` -> ``ORNEK KAFE``; see :mod:`kalan.categories`.
+    ``IYZICO*ORNEK KAFE 000123 ISTANBUL TR`` -> ``ORNEK KAFE``; see :mod:`kalan.categories`. Empty when the
+    description holds only an address (no readable merchant name).
     """
-    from kalan.categories import clean_merchant  # late: kalan.categories imports this module
+    from kalan.categories import merchant_name  # late: kalan.categories imports this module
 
-    return clean_merchant(merchant_key(description))
+    return merchant_name(merchant_key(description)) or ""
+
+
+def merchant_fields(description: str) -> dict[str, str | bool | None]:
+    """``{"merchant", "merchant_unreadable"}`` for a row that should carry a merchant name."""
+    if not merchant_key(description):
+        return {"merchant": None, "merchant_unreadable": False}
+    name = normalize_merchant(description)
+    return {"merchant": name or None, "merchant_unreadable": not name}

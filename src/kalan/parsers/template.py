@@ -40,7 +40,7 @@ from kalan.models import (
     TransactionKind,
 )
 from kalan.parsers.base import ParseError, StatementParser
-from kalan.text import fold, normalize_merchant
+from kalan.text import fold, merchant_fields
 
 BUILTIN_DIR = Path(__file__).resolve().parent.parent / "templates"
 SCHEMA_FILE = BUILTIN_DIR / "template.schema.json"
@@ -783,8 +783,9 @@ class TemplateParser(StatementParser):
                 else (original_amount.minor, foreign.group("currency").upper()) if foreign and original_amount
                 else None
             )
-            merchant = (
-                normalize_merchant(row.description) if kind in merchant_kinds and component is None else None
+            names = (
+                merchant_fields(row.description) if kind in merchant_kinds and component is None
+                else {"merchant": None, "merchant_unreadable": False}
             )
             out.append(
                 Transaction(
@@ -796,7 +797,7 @@ class TemplateParser(StatementParser):
                     direction=direction,
                     kind=kind,
                     installment=installment,
-                    merchant=merchant,
+                    **names,  # type: ignore[arg-type]
                     source="statement",
                     original_amount=original[0] if original else None,
                     original_currency=original[1] if original else None,

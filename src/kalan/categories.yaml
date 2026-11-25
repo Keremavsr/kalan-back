@@ -12,8 +12,18 @@
 version: 1
 
 merchant:
-  processors: [iyzico, iyz, paytr, payu, param, parampos, sipay, craftgate, moka, papara, paycell, ininal, lidio,
-               esnekpos, paynet, vepara, hepsipay, paypal, pp, stripe, paddle, fastspring, 2co, sq, sumup, tst]
+  # processors: stripped only when followed by "*" (short or ambiguous names).
+  processors: [iyz, payu, param, parampos, moka, pp, stripe, paddle, fastspring, 2co, sq, sumup, tst, ozan, token,
+               garanti pay, bkm, troy]
+  # bare_processors: unambiguous processor names, stripped also when followed by a space, "-", "." or ":".
+  bare_processors: [iyzico, paytr, sipay, craftgate, papara, paycell, ininal, lidio, esnekpos, paynet, vepara,
+                    hepsipay, paypal, moneypay, money pay, moka united, mokaunited, moka pos, mokapos, tosla, ipara,
+                    nkolay, paybull, paygo, birlesik odeme, payfor, turkpara, elekse, ozan elektronik, pokus,
+                    netahsilat, paratika, paymes, shopier, hepsiburada pay, colendi, dgpays, octet, papel,
+                    paym, payguru, paywall, iyzi, bkm express]
+  # address: street and district markers. A name made only of these, places and numbers is no merchant name.
+  address: [cd, cad, cadde, caddesi, cadd, sk, sok, sokak, sokagi, mah, mahalle, mahallesi, mh, blv, bulv, bulvar,
+            bulvari, meydani, apartmani, pasaji, carsisi, osb]
   tails: [
     tr, tur, turkey, turkiye, tc, us, usa, gb, gbr, uk, ie, irl, nl, nld, lu, lux, de, deu, fr, cy, ae, are,
     adana, adiyaman, afyon, afyonkarahisar, agri, aksaray, amasya, ankara, antalya, ardahan, artvin, aydin,
@@ -31,6 +41,36 @@ merchant:
     muratpasa, konyaalti, seyhan, merkez,
     london, dublin, amsterdam, luxembourg, berlin, paris, nicosia, dubai, internet, online]
 
+# stems: generic words that also match when the printer glued them to another word or cut them short
+# ("ORNEKPASTANE", "MARKETCILIK", "RESTORA"). Only generic words, never brand names.
+stems: [market, marketi, supermarket, hipermarket, minimarket, bakkal, bakkaliye, kasap, manav, sarkuteri,
+        kuruyemis, kuruyemisci, gida, gidasi, restoran, restorani, restaurant, lokanta, lokantasi,
+        kebap, kebapcisi, kebapci, donercisi, kofteci, koftecisi, pideci, pidecisi, lahmacuncu, tantuni,
+        pizza, pizzeria, burger, pastane, pastanesi, patisserie, patisseri, tatlici, tatlicisi, baklava,
+        baklavacisi, dondurma, dondurmacisi, borekcisi, simitci, kafeterya, kahvecisi, kahveci, kahvalti,
+        kahvaltici, coffee, tavukcu, corbaci, firini, akaryakit, petrol, petrolcu, otogaz, otopark, otoparki,
+        eczane, eczanesi, eczacilik, hastane, hastanesi, poliklinik, poliklinigi, klinik, klinigi,
+        laboratuvar, optik, gozlukcu, medikal, veteriner, kirtasiye, kirtasiyesi, dershane, akademi,
+        akademisi, egitim, sinema, sinemasi, tiyatro, sigorta, sigortasi, sigortacilik, mobilya, mobilyaci,
+        hirdavat, nalbur, zuccaciye, dekorasyon, aydinlatma, elektronik, bilgisayar, teknoloji, giyim,
+        tekstil, ayakkabi, konfeksiyon, butik, kozmetik, parfumeri, oyuncak, oyuncakci, hediyelik, cicekci,
+        cicekcilik, kuyumcu, kuyumculuk, kitabevi, kuafor, kuaforu, berber, berberi, guzellik, turizm,
+        seyahat, otelcilik, konaklama, pansiyon, nakliyat, tasimacilik, lojistik, kargo, magaza, magazasi,
+        magazacilik, magazalari, elektrik, dogalgaz, belediye, belediyesi, noter, noterligi,
+        okulu, kolej, koleji, kursu, kurslari, universite, universitesi, egitimi, taksi, kiralama, lastik,
+        otomotiv, motor, garaj, durak, otogar, kurye, tamir, tamirat, tesisat, seramik, banyo, perde,
+        perdecilik, kasabi, manavi, firin, simit, borek, kahve, kahvesi, tatli, sushi, kunefe, muhallebi,
+        muhallebici, kurabiye, cikolata, sekerleme, kokorec, midye, midyeci, mangal, izgara, ekmek, peynir,
+        peynirci, sutcu, baharat, bakliyat, aktar, organik, tupgaz, hekim, hekimi, doktor, diyetisyen,
+        ortopedi, fizyoterapi, psikolog, laboratuvari, tahlil, saglik, etut, kreş, anaokulu, yayinlari,
+        yayincilik, bilet, biletleri, eglence, oyun, konser, muzesi, bowling, bilardo, karaoke, festival,
+        hamam, sauna, masaj, epilasyon, estetik, terzi, kunduraci, avukat, avukatlik, muhasebe,
+        danismanlik, emlak, gayrimenkul, insaat, mimarlik, muhendislik, reklam, reklamcilik, matbaa,
+        fotokopi, fotograf, fotografcilik, cicek, bijuteri, aksesuar, aksesuarlari, outdoor, bisiklet,
+        petshop, iletisim, bilisim, telefoncu, klima, kombi, elektrikci, cilingir, anahtarci, parfum,
+        hediye, kitap, otel, oteli, otelleri, hotel, resort, hostel, apart, acente, acentesi, tatil,
+        termal, vapur, feribot, muayene]
+
 kinds:
   fee: fees
   interest: fees
@@ -40,42 +80,161 @@ kinds:
   carry_over: other
 
 rules:
-  groceries: [migros, migros jet, macrocenter, carrefoursa, carrefour, a101, bim, sok market, sok marketler,
-              file market, hakmar, onur market, metro grosmarket, bizim toptan, kipa, happy center, mopas,
-              tarim kredi, getir, getir buyuk, istegelsin, yemeksepeti market, banabi, market, bakkal, kasap,
-              manav, sarkuteri]
-  dining: [yemeksepeti, getir yemek, trendyol yemek, trendyol go, starbucks, kahve dunyasi, espressolab,
-           caffe nero, gloria jeans, simit sarayi, burger king, mcdonalds, kfc, popeyes, dominos, pizza hut,
-           little caesars, sbarro, usta donerci, baydoner, tavuk dunyasi, big chefs, cafe, kafe, kahve,
-           restoran, restaurant, lokanta, kebap, kebab, doner, pide, pastane, pastanesi, firin, borek, coffee]
-  fuel: [shell, opet, petrol ofisi, po petrol, bp, totalenergies, aytemiz, alpet, kadoil, lukoil,
-         moil, gulf, akaryakit, petrol]
-  transport: [bitaksi, uber, marti, binbin, istanbulkart, belbim, iett, metro istanbul, ego, eshot,
-              izban, marmaray, hgs, ogs, kgm, otopark, ispark, taksi, otogar, tcdd]
-  travel: [turk hava yollari, thy, pegasus, ajet, anadolujet, sunexpress, obilet, enuygun, tatilbudur,
-           jolly, etstur, setur, booking.com, airbnb, expedia, hotels.com, otel, hotel, havalimani, airport,
-           dhmi, tav]
-  telecom: [turkcell, vodafone, turk telekom, ttnet, superonline, turknet, millenicom, d-smart, kablonet]
-  utilities: [enerjisa, ck enerji, ck bogazici, uedas, aydem, gediz, igdas, baskentgaz, izmirgaz, aksagaz,
-              iski, aski, izsu, buski, elektrik, dogalgaz, su idaresi]
-  subscriptions: [netflix, spotify, youtube, youtube premium, google one, google storage, disney, disney plus,
-                  blutv, exxen, tabii, amazon prime, prime video, apple.com/bill, itunes, icloud,
-                  apple music, chatgpt, openai, anthropic, claude.ai, microsoft, xbox game pass, adobe, canva,
-                  dropbox, notion, github, patreon, duolingo, storytel]
-  shopping: [trendyol, hepsiburada, amazon, n11, ciceksepeti, pazarama, aliexpress, temu, gittigidiyor, ebay,
-             watsons, gratis, rossmann, sephora, d&r, idefix, kitapyurdu, toyzz, avm]
-  electronics: [teknosa, mediamarkt, vatan bilgisayar, apple store, samsung, xiaomi, huawei, arcelik, vestel,
-                beko, bosch, troyestore, gurgencler, itopya, elektronik]
-  clothing: [lc waikiki, koton, defacto, mavi, colins, ltb, zara, bershka, pull and bear, stradivarius, h&m,
-             mango, boyner, beymen, vakko, network, ipekyol, flo, instreet, superstep, deichmann, ayakkabi dunyasi,
-             nike, adidas, puma, skechers, decathlon, giyim, tekstil]
-  home: [ikea, koctas, bauhaus, tekzen, english home, madame coco, karaca, pasabahce, bellona, istikbal,
-         dogtas, mudo, evidea, mobilya, hirdavat, nalbur]
-  health: [eczane, eczanesi, eczacilik, hastane, hastanesi, acibadem, medical park, memorial, liv hospital,
-           florence nightingale, medicana, dentist, dis klinigi, klinik, poliklinik, optik, laboratuvar]
-  education: [okul, kolej, universite, universitesi, dershane, kurs, udemy, coursera, egitim, kirtasiye]
-  entertainment: [sinema, cinemaximum, paribu cineverse, biletix, passo, biletinial, steam, playstation,
-                  epic games, nintendo, riot games, tiyatro, konser, muze, bowling]
-  insurance: [sigorta, axa, allianz, anadolu sigorta, aksigorta, mapfre, sompo, hdi, turkiye sigorta]
-  taxes: [vergi, gib, mtv, harc, belediye, e-devlet, sgk]
-  transfers: [havale, eft, fast, para transferi]
+  groceries: [migros, migros jet, mmigros, macrocenter, migros hemen, carrefoursa, carrefour, a101, a 101, bim,
+              bim birlesik magazalar, sok market, sok marketler, file, file market, hakmar, hakmar express,
+              onur market, metro grosmarket, metro market, bizim toptan, bizim market, kipa, happy center,
+              mopas, cagri market, gimsa, akyurt, uyum market, tarim kredi, tarim kredi koop, tarim kredi kooperatif,
+              ozdilek market, show market, kim market, getir, getir buyuk, getir carsi, istegelsin,
+              yemeksepeti market, banabi, market, marketi, marketleri, marketler, supermarket, super market,
+              hipermarket, mini market, minimarket, gida, gidasi, gida pazarlama, bakkal, bakkaliye, kasap, kasabi,
+              manav, manavi, sarkuteri, sarkuterisi, kuruyemis, kuruyemisci, sut urunleri, et urunleri, tekel,
+              tekel bayi, bufe, sebze meyve, meyve sebze, toptan gida, ciftlik, koska, peyman, tadim,
+              supermarketleri, hipermarketleri, sarkuteri ve, toptanci, tupgaz, su bayi, su deposu, ekmek bufe,
+              organik, aktar, baharat, bakliyat, peynir, peynirci, sutcu, bal, zeytin, kuruyemis ve,
+              sec market, kiler, pehlivanoglu, ozhan, ekomini, mismar, cagdas market, rammar, groseri, bildirici,
+              altunbilekler, esenlik, karadeniz market, tazedirekt, hepsiexpress, ekoyerli, macro center,
+              bim magazalari, a101 yeni magazacilik, sok marketler ticaret, migros ticaret,
+              carrefoursa carrefour, file magazacilik, gurmar, yunus market, oruc market, kim gida, ucz market,
+              cepte sok]
+  dining: [yemeksepeti, getir yemek, trendyol yemek, trendyol go, migros yemek, starbucks, kahve dunyasi,
+           espressolab, caffe nero, cafe nero, gloria jeans, costa coffee, caribou, coffy, tchibo, simit sarayi,
+           burger king, mcdonalds, mc donalds, kfc, popeyes, carls jr, arbys, wendys, dominos, domino s, pizza hut,
+           little caesars, papa johns, sbarro, dodo pizza, usta donerci, baydoner, bereket doner, maydonoz doner,
+           tavuk dunyasi, big chefs, bigchefs, kitchenette, cookshop, happy moons, midpoint, numnum, num num,
+           sushico, gunaydin, kofteci yusuf, kofteci ramiz, hd iskender, komagene, oses, cigkoftem, mado,
+           hafiz mustafa, saray muhallebicisi, pelit, divan, ozsut, house cafe, cafe, caffe, kafe, kafesi, kafeterya,
+           kahve, kahvesi, kahvecisi, kahveci, coffee, coffee shop, cay ocagi, cay bahcesi, restoran, restorani,
+           restaurant, lokanta, lokantasi, lokantalari, et lokantasi, ev yemekleri, yemek, yemekleri, sofrasi,
+           mutfak, mutfagi, kebap, kebapcisi, kebab, doner, donercisi, durum, iskender, kofte, kofteci, koftecisi,
+           cigkofte, cig kofte, tantuni, lahmacun, pide, pidecisi, pizza, pizzeria, burger, burgers, steakhouse,
+           ocakbasi, meyhane, balik, balikcisi, balik evi, sushi, noodle, kumpir, waffle, gozleme, borek, borekcisi,
+           firin, firini, pastane, pastanesi, pastaneleri, patisserie, patisseri, tatlici, tatlicisi, tatli,
+           baklava, baklavacisi, kunefe, dondurma, dondurmacisi, simit, simitci, unlu mamul, unlu mamulleri,
+           unlu mamuller, bistro, brasserie, bar, pub, gastro, food, foods, fast food, cafe bar, nargile,
+           tavuk, tavukcu, tavukculuk, kokorec, midye, midyeci, kahvalti, kahvaltici, kahvalti salonu, serpme,
+           cayevi, kiraathane, kiraathanesi, lounge, beach club, kantin, kantini, yemekhane, catering, mangal,
+           grill, izgara, chicken, falafel, ekmek, ekmek firini, unlu, boza, muhallebi, muhallebici, sutlac,
+           kurabiye, cikolata, cikolatacisi, sekerleme, lokum, helva, kitchen, bakery, tea, cafe restaurant,
+           kafe restoran, bistro cafe, tost, tostcu, cig kofteci, pilav, corba, corbaci, kebapci, lahmacuncu,
+           pideci, kasap restoran, et mangal, steak, diner, eatery, gelato, cupcake, donut, pastry,
+           kronotrop, petra roasting, moc, walters coffee, arabica, coffee lab, mandabatmaz, cafe crown,
+           develi, gulluoglu, karakoy gulluoglu, baylan, tatlici safa, subway, shake shack, five guys,
+           johnny rockets, pizza locale, pizza bulls, marco pascha, pizzalazza, pasaport pizza, terra pizza,
+           tostcu erol, dominos pizza, sbarro pizza, popeyes chicken, mcdonald s, burger king restoranlari,
+           tavuk dunyasi restoran, usta doner, cigkofte ve, caffe nero coffee, starbucks coffee,
+           simit sarayi magaza, the hunger, fasuli, hamburger, nusret, nusr-et, sushi co, wok to walk,
+           big chefs cafe, tavuk evi, kebapzade, pideban]
+  fuel: [shell, opet, petrol ofisi, po petrol, bp, total, totalenergies, aytemiz, alpet, kadoil, lukoil, moil,
+         gulf, termopet, sunpet, tp petrol, turkiye petrolleri, akpet, socar, energy petrol, akaryakit,
+         akaryakit istasyonu, petrol, petrolcu, benzin, otogaz, lpg, akaryakit urunleri,
+         fuel, gas station, petrol urunleri, enerji petrol]
+  transport: [bitaksi, uber, marti, binbin, hop, istanbulkart, belbim, iett, metro istanbul, ego, eshot, izban,
+              izmirim kart, ankarakart, kentkart, marmaray, tcdd, tcdd tasimacilik, hgs, ogs, kgm, otoyol,
+              avrasya tuneli, osmangazi koprusu, kuzey marmara otoyolu, otopark, otoparki, ispark, vale, valet,
+              taksi, taksi duragi, ido, sehir hatlari, turyol, dentur, vapur, feribot, otogar, metro turizm,
+              kamil koc, pamukkale turizm, flixbus, ulusoy, varan, avis, budget, sixt, europcar, enterprise,
+              garenta, yolcu360, oto yikama, otoyikama, car wash, lastik, oto servis, otomotiv, oto ekspertiz,
+              muayene, tuvturk, arac muayene,
+              parking, taxi, kiralama, rent a car, rentacar, oto kiralama, yedek parca, oto yedek parca, aku,
+              egzoz, kaporta, oto boya, oto lastik, motor, motorsiklet, scooter, nakliyat, tasimacilik, kurye,
+              garaj, durak,
+              tiktak, yandex go, moovit, lime, bolt, istanbul ulasim, izmir metro, ankara metro, kentkart odeme,
+              belbim elektronik, akbil]
+  travel: [turk hava yollari, thy, turkish airlines, pegasus, ajet, anadolujet, sunexpress, corendon, obilet,
+           enuygun, turna, ucuzabilet, tatilsepeti, tatilbudur, jolly, jollytur, etstur, ets tur, setur, otelz,
+           booking.com, booking, airbnb, expedia, hotels.com, trivago, agoda, havaist, havabus, otel, oteli,
+           otelleri, hotel, hotels, resort, pansiyon, pansiyonu, apart, hostel, havalimani, airport, dhmi, tav,
+           iga, primeclass, duty free, vize,
+           turizm, seyahat, seyahat acentesi, acente, acentesi, tur, tours, travel, airlines, airways,
+           otelcilik, konaklama, tatil, tatil koyu, termal,
+           pegasus hava, thy online, booking.com bv, airbnb payments, otel rezervasyon, tatil.com, odamax,
+           hotelrunner]
+  telecom: [turkcell, vodafone, turk telekom, turktelekom, ttnet, superonline, turkcell superonline, turknet,
+            millenicom, d-smart, kablonet, bimcell, pttcell, gsm, internet hizmetleri, fiber internet]
+  utilities: [enerjisa, ck enerji, ck bogazici, ck akdeniz, ck uludag, uedas, aydem, gediz, osmangazi edas, sepas,
+              akedas, bedas, ayedas, toroslar edas, dicle edas, vangolu edas, aras edas, coruh edas, kcetas,
+              meram edas, trakya edas, yesilirmak edas, camlibel edas, edas, igdas, baskentgaz, izmirgaz, aksagaz,
+              esgaz, palen, enerya, kayserigaz, bursagaz, gazdas, agdas, iski, aski, izsu, buski, asat, maski, kaski,
+              deski, saski, koski, meski, gaski, tiski, elektrik, elektrik faturasi, dogalgaz, dogal gaz,
+              su idaresi, su faturasi, su ve kanalizasyon]
+  subscriptions: [netflix, spotify, youtube, youtube premium, youtubepremium, google one, google storage, disney,
+                  disney plus, blutv, hbo max, exxen, gain, tabii, mubi, beinconnect, digiturk, tivibu, amazon prime,
+                  prime video, fizy, deezer, tidal, apple.com/bill, apple com bill, itunes, icloud, apple music,
+                  chatgpt, openai, anthropic, claude.ai, claude, midjourney, perplexity, cursor, microsoft,
+                  microsoft 365, office 365, xbox game pass, adobe, canva, figma, dropbox, notion, github, jetbrains,
+                  patreon, duolingo, babbel, storytel, audible, scribd, linkedin, tinder, bumble, nordvpn,
+                  expressvpn, surfshark, 1password, zoom, grammarly, yandex plus, macfit, mars athletic,
+                  sports international, b-fit, bfit, spor salonu, fitness, gym, pilates, yoga studio, abonelik,
+                  uyelik,
+                  godaddy, namecheap, natro, turhost, isimtescil, hostinger, hosting, domain, icloud storage,
+                  amazon web services, aws, digitalocean, vercel, cloudflare, google cloud, google workspace,
+                  hillside, sportive, fitness club, spor merkezi, crossfit, exxen tv, tabii tv, beinconnect tv,
+                  youtube music, google youtube, spotify ab, netflix.com, disney plus tr, amazon prime video,
+                  apple one, icloud+, google one ai]
+  shopping: [trendyol, hepsiburada, amazon, amazon.com.tr, n11, ciceksepeti, pazarama, aliexpress, temu, shein,
+             ebay, etsy, modanisa, morhipo, watsons, gratis, rossmann, sephora, flormar, golden rose, yves rocher,
+             the body shop, kiko, d&r, idefix, kitapyurdu, bkm kitap, toyzz, toyzz shop, ebebek, joker, mothercare,
+             avm, magaza, magazasi, magazalari, magazacilik, kozmetik, parfumeri, parfum, oyuncak, hediyelik,
+             cicekci, cicek, petshop, pet shop, kuyumcu, kuyumculuk, kitap, kitabevi, kirtasiye ve kitap,
+             store, shop, shopping, outlet, bijuteri, aksesuar, aksesuarlari, oyuncakci, kirtasiye ve oyuncak,
+             bebek urunleri, anne bebek, cocuk, kozmetik ve, kisisel bakim, hediye, hediyelik esya,
+             spor malzemeleri, outdoor, kamp, bisiklet, fotograf, fotografcilik, foto, fotokopi, matbaa,
+             cicekcilik,
+             pttavm, sahibinden, letgo, dolap, gardrops, farmasi, avon, oriflame, mac cosmetics, remzi kitabevi,
+             pandora kitap, kitapsan, ozdilek, tac, koton magazacilik, lcw magazacilik, migros online,
+             hepsiburada.com, trendyol.com, amazon.com, n11.com, play store]
+  electronics: [teknosa, mediamarkt, media markt, vatan bilgisayar, vatan, apple store, samsung, xiaomi, mi store,
+                huawei, oppo, arcelik, vestel, beko, bosch, siemens, profilo, altus, philips, dyson, troyestore,
+                gurgencler, itopya, incehesap, sinerji, monster notebook, casper, turkcell pasaj, elektronik,
+                bilgisayar, teknoloji, telefon aksesuar,
+                bilisim, teknik servis, cep telefonu, telefoncu, iletisim, gsm aksesuar,
+                hepsiburada elektronik, apple online, samsung store, xiaomi store, huawei store, turkcell iletisim]
+  clothing: [lc waikiki, lcw, koton, defacto, mavi, colins, ltb, zara, bershka, pull and bear, pull&bear,
+             stradivarius, oysho, massimo dutti, h&m, mango, boyner, beymen, vakko, network, ipekyol, twist, machka,
+             yargici, derimod, desa, kemal tanca, hotic, flo, instreet, superstep, sneaks up, deichmann,
+             ayakkabi dunyasi, nike, adidas, puma, skechers, new balance, under armour, decathlon, columbia,
+             the north face, us polo, u.s. polo assn, tommy hilfiger, lacoste, gant, penti, suwen, marks spencer,
+             marks & spencer, gap, levis, kigili, altinyildiz, ramsey, damat, tween, sarar, avva, jack jones,
+             vero moda, lescon, kinetix, hummel, giyim, tekstil, butik, ayakkabi, canta, konfeksiyon, terzi]
+  home: [ikea, koctas, bauhaus, tekzen, english home, madame coco, karaca, pasabahce, bellona, istikbal, dogtas,
+         mudo, evidea, kelebek mobilya, alfemo, enza home, yatas, tepe home, vivense, normod, chakra, linens,
+         jumbo, schafer, emsan, korkmaz, tefal, porland, kutahya porselen, mobilya, hirdavat, nalbur, yapi market,
+         boya, zuccaciye, ev tekstili, temizlik, kuru temizleme, camasirhane,
+         dekorasyon, perde, perdecilik, aydinlatma, beyaz esya, mobilyaci, zuccaciye ve, plastik, tesisat,
+         elektrikci, kombi, klima, cilingir, anahtarci, tamir, tamirat, insaat malzemeleri,
+         yapi malzemeleri, seramik, banyo, mutfak dunyasi, hali, carpet]
+  health: [eczane, eczanesi, eczacilik, ecza, hastane, hastanesi, hastaneleri, acibadem, medical park, memorial,
+           liv hospital, florence nightingale, medicana, medipol, dunyagoz, dentgroup, dentist, dis hekimi,
+           dis klinigi, agiz ve dis, klinik, klinigi, poliklinik, poliklinigi, tip merkezi, saglik, saglik grubu,
+           laboratuvar, laboratuvari, tahlil, optik, gozluk, gozlukcu, psikolog, fizyoterapi, veteriner,
+           veteriner klinigi, medikal,
+           dr, uzm dr, op dr, doc dr, prof dr, doktor, hekim, hekimi, hekimligi, medical, pharmacy, hospital,
+           clinic, dental, dis poliklinigi, agiz dis, saglik merkezi, check up, rontgen, goruntuleme,
+           ortopedi, odyoloji, isitme, isitme cihazi, diyetisyen, beslenme]
+  education: [okul, okulu, kolej, koleji, universite, universitesi, dershane, dershanesi, kurs, kursu, kurslari,
+              etut, udemy, coursera, egitim, egitimi, akademi, akademisi, kirtasiye, kirtasiyesi, osym, ozel ders,
+              college, school, university, academy, anaokulu, kres, yuva, dil okulu, surucu kursu, surucu kursu,
+              etut merkezi, kolejleri, okullari, dershaneleri, yayinlari, yayincilik]
+  entertainment: [sinema, sinemasi, sinemalari, cinemaximum, cinemapink, paribu cineverse, avsar sinemalari,
+                  biletix, passo, biletinial, mobilet, bubilet, steam, steampowered, playstation, psn, epic games,
+                  nintendo, riot games, blizzard, google play, tiyatro, tiyatrosu, konser, muze, muzesi, oren yeri,
+                  bowling, lunapark, aquapark, escape room, hayvanat bahcesi, akvaryum, sea life, legoland,
+                  oyun salonu, bilardo, karaoke, festival, milli piyango, iddaa, misli, nesine, bilyoner,
+                  oyun, game, games, eglence, eglence merkezi, cinema, theatre, theater, museum, concert, ticket,
+                  bilet, biletleri,
+                  cinepink, prestige sinema, sinema salonu, tiyatro bileti, biletall, playstation network,
+                  xbox, steam games, valorant, pubg, epic, roblox, twitch]
+  insurance: [sigorta, sigortasi, sigortacilik, axa, allianz, anadolu sigorta, aksigorta, mapfre, sompo, hdi,
+              turkiye sigorta, ray sigorta, quick sigorta, neova, unico, zurich, groupama, eureko, bereket sigorta,
+              generali, hepiyi, emeklilik, kasko, dask]
+  taxes: [vergi, vergisi, gib, mtv, harc, harci, belediye, belediyesi, e-devlet, edevlet, sgk, noter, noterligi,
+          tapu, pasaport, trafik cezasi]
+  transfers: [havale, eft, fast, para transferi, papara, ininal, tosla,
+              paribu, btcturk, binance, okx, bitci, icrypex, wise, revolut, western union, papara elektronik,
+              ininal kart]
+  cash: [atm, nakit, para cekme]
+  other: [kargo, aras kargo, yurtici kargo, mng kargo, surat kargo, ptt, bagis, dernegi, vakfi,
+          kuafor, kuaforu, berber, berberi, guzellik, guzellik salonu, guzellik merkezi, estetik, epilasyon,
+          nail, spa, masaj, hamam, sauna, terzi, kunduraci, kuru temizleme ve, hukuk, hukuk burosu, avukat,
+          avukatlik, muhasebe, mali musavir, danismanlik, emlak, gayrimenkul, site yonetimi,
+          apartman yonetimi, noter harci, insaat, mimarlik, muhendislik, reklam, reklamcilik, lojistik]

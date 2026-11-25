@@ -16,7 +16,7 @@ from tests.conftest import VB_PDFS, upload
 
 SUMMARY_KEYS = {"id", "bank", "product", "card_last4", "period_start", "period_end", "due_date", "currency",
                 "statement_total", "minimum_payment", "reconciliation", "analysis_status",
-                "needs_review", "review"}  # v0.2.0 + review (v0.3.0)
+                "needs_review", "review", "card_id", "card_label"}  # v0.2.0 + review (v0.3.0) + card (v0.4.0)
 TX_KEYS = {"id", "date", "description", "amount", "currency", "direction", "kind", "installment", "category",
            "merchant", "source"}
 

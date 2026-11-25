@@ -24,7 +24,12 @@ def test_migrations_are_numbered_and_applied(store):
 
 def test_roundtrip_and_persistence(store, parsed):
     saved = store.add_statement(parsed)
-    assert saved == parsed.model_copy(update={"analysis_status": "none"})
+    card = {"card_id": saved.card_id, "card_label": saved.card_label}
+    assert saved.card_id and saved.card_id.startswith("cd_") and saved.card_label == "VakıfBank Worldcard ··0000"
+    assert saved == parsed.model_copy(update={
+        "analysis_status": "none", **card,
+        "transactions": [t.model_copy(update=card) for t in parsed.transactions],
+    })
     again = Store(store.path).get_statement(parsed.id)
     assert again == saved
 

@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+*.db
+*.sqlite
+*.sqlite3
+data/
+.env
+# Never commit real statements: PDFs are allowed only as test fixtures.
+*.pdf
+!tests/fixtures/**/*.pdf

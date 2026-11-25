@@ -5,10 +5,13 @@ the :class:`~kalan.service.Kalan` facade and the parsed arguments and returns an
 printed by ``--json`` and the lines printed for a person. Modules here are imported automatically, so a
 new command group is a new file and nothing else changes::
 
-    @command("borc", "debt", help="what is left to pay", args=[arg("--card")])
+    @command("borc", "debt", help="help.borc", args=[arg("--card", help="help.borc.card")])
     def debt(k: Kalan, a: argparse.Namespace) -> Out:
-        data = ...
-        return Out(data, table(["Card", "Left"], rows))
+        data = k.debt(a.card)                      # one Kalan method in service.py
+        return Out(data, table(cols("card", "left"), rows))
+
+Every text a person reads comes from :mod:`kalan.i18n` (``t("key")``, ``cols(...)``, ``word(...)``); help
+texts are catalogue keys. Add the English and Turkish strings there, nowhere else.
 
 Money is always integer minor units in ``--json`` and formatted with the user's locale in tables.
 """
@@ -24,6 +27,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from kalan.amounts import COMMA_DECIMAL, DOT_DECIMAL, AmountFormat, format_minor, minor_units
+from kalan.i18n import get_lang, has, t
 from kalan.service import Kalan
 
 COMMA_LOCALES = {"tr", "pt", "es"}
@@ -31,8 +35,13 @@ COMMA_LOCALES = {"tr", "pt", "es"}
 
 @dataclass
 class Out:
+    """``data`` for ``--json``; ``lines`` for a person, or ``raw`` text written as is (an export file);
+    ``notes`` go to stderr so they never mix with ``raw`` output."""
+
     data: Any
     lines: list[str] = field(default_factory=list)
+    raw: str | None = None
+    notes: list[str] = field(default_factory=list)
 
 
 Handler = Callable[[Kalan, argparse.Namespace], Out]
@@ -80,10 +89,14 @@ def load() -> dict[str, Command]:
 
 
 class Money:
-    """Formats minor units for one locale: ``1.234,56 TRY`` (tr) or ``1,234.56 TRY`` (en)."""
+    """Formats minor units for one output language: ``1.234,56 TL`` (tr) or ``1,234.56 TRY`` (en)."""
 
-    def __init__(self, locale: str) -> None:
-        self.base: AmountFormat = COMMA_DECIMAL if locale in COMMA_LOCALES else DOT_DECIMAL
+    def __init__(self, lang: str) -> None:
+        self.lang = lang
+        self.base: AmountFormat = COMMA_DECIMAL if lang in COMMA_LOCALES else DOT_DECIMAL
+
+    def unit(self, currency: str) -> str:
+        return "TL" if self.lang == "tr" and currency == "TRY" else currency
 
     def __call__(self, minor: int | None, currency: str | None = None) -> str:
         if minor is None:
@@ -91,18 +104,34 @@ class Money:
         decimals = minor_units(currency) if currency else 2
         fmt = AmountFormat(self.base.thousands, self.base.decimal, decimals)
         text = format_minor(minor, fmt)
-        return f"{text} {currency}" if currency else text
+        return f"{text} {self.unit(currency)}" if currency else text
 
 
-def money_for(k: Kalan) -> Money:
-    return Money(k.store.get_settings().locale)
+def money_for(k: Kalan | None = None) -> Money:
+    """Money formatter for the current output language (see :mod:`kalan.i18n`)."""
+    return Money(get_lang())
 
 
-def percent(share: str | None) -> str:
-    """``"0.25"`` -> ``"25.0%"``; ``"-0.10"`` -> ``"-10.0%"``."""
+def _number(value: float, decimals: int) -> str:
+    text = f"{value:.{decimals}f}"
+    return text.replace(".", ",") if get_lang() in COMMA_LOCALES else text
+
+
+def percent(share: str | float | None, decimals: int = 1) -> str:
+    """A fraction as a percentage: ``"0.25"`` -> ``"25.0%"`` (en) or ``"%25,0"`` (tr)."""
     if share is None:
         return "-"
-    return f"{float(share) * 100:.1f}%"
+    text = _number(float(share) * 100, decimals)
+    if get_lang() == "tr":
+        return f"-%{text[1:]}" if text.startswith("-") else f"%{text}"
+    return f"{text}%"
+
+
+def rate(percent_text: str | None) -> str:
+    """A rate already in percent (``"3.08"``) -> ``"3.08%"`` (en) or ``"%3,08"`` (tr)."""
+    if percent_text is None:
+        return "-"
+    return percent(float(percent_text) / 100, decimals=2)
 
 
 def _width(text: str) -> int:
@@ -132,3 +161,13 @@ def shorten(text: str | None, limit: int = 40) -> str:
     if not text:
         return ""
     return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def helptext(value: str | None) -> str | None:
+    """A help text given as a catalogue key (``"help.takvim"``) in the current language; other text as is."""
+    return t(value) if value and has(value) else value
+
+
+def cols(*keys: str) -> list[str]:
+    """Column headers from the catalogue: ``cols("month", "total")``."""
+    return [t(f"col.{k}") for k in keys]

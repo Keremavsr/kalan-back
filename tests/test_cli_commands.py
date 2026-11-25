@@ -25,6 +25,12 @@ TR_CSV = """Tarih;Açıklama;Tutar
 """
 
 
+@pytest.fixture(autouse=True)
+def _english(monkeypatch):
+    """English output unless a test passes --lang; the OS locale of the test machine must not matter."""
+    monkeypatch.setenv("KALAN_LANG", "en")
+
+
 @pytest.fixture
 def kalan(tmp_path) -> Kalan:
     config = Config(data_dir=tmp_path)
@@ -154,7 +160,7 @@ def test_simulate(loaded, capsys):
     assert data["purchase"]["amount"] == 999999 and data["purchase"]["count"] == 6
     assert [i["amount"] for i in data["purchase"]["installments"]] == [166669] + [166666] * 5
     code, out, _ = run(loaded, capsys, "simulate", "1000", "3", "--interest", "3", "--start", "2099-01")
-    assert code == 0 and "total 1.060,59 TRY (interest 60,59 TRY)" in out
+    assert code == 0 and "total 1,060.59 TRY (interest 60.59 TRY)" in out
     code, _, err = run(loaded, capsys, "simule", "abc", "3")
     assert code == 1 and "invalid_amount" in err
     code, _, err = run(loaded, capsys, "simule", "100", "0")
@@ -204,7 +210,7 @@ def test_table_and_money_helpers():
     assert table(["A", "Bee"], [["x", 1], ["long", 22]], right=[1]) == ["A     Bee", "----  ---", "x       1",
                                                                          "long   22"]
     assert table(["A"], []) == []
-    assert Money("tr")(123456, "TRY") == "1.234,56 TRY"
+    assert Money("tr")(123456, "TRY") == "1.234,56 TL"
     assert Money("en")(123456, "USD") == "1,234.56 USD"
     assert Money("tr")(1234, "JPY") == "1.234 JPY"
     assert Money("tr")(None) == "-"

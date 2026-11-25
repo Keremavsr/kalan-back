@@ -110,70 +110,102 @@ def serve(port: int, print_port: bool) -> int:
 
 def _utf8_stdout() -> None:
     """Pipes and files get UTF-8 (scripts read ``--json``); a console keeps its encoding, never crashing."""
-    stream = sys.stdout
-    reconfigure = getattr(stream, "reconfigure", None)
-    if reconfigure is None:
-        return
-    with contextlib.suppress(OSError, ValueError):
-        reconfigure(encoding="utf-8") if not stream.isatty() else reconfigure(errors="replace")
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        with contextlib.suppress(OSError, ValueError):
+            reconfigure(encoding="utf-8") if not stream.isatty() else reconfigure(errors="replace")
+
+
+def _error_text(exc) -> str:
+    """The error in the output language: Turkish from the catalogue by code, else the English message."""
+    from kalan.i18n import get_lang, has, t
+
+    key = f"error.{exc.code}"
+    message = t(key) if get_lang() == "tr" and has(key) else exc.message
+    return t("cli.error", message=message, code=exc.code)
 
 
 def run_data_command(cmd, args: argparse.Namespace, kalan=None) -> int:
     from kalan.service import Kalan, ServiceError
 
-    _utf8_stdout()
     try:
         k = kalan or Kalan()
         out = cmd.handler(k, args)
     except ServiceError as exc:
         if args.json:
             print(json.dumps(exc.as_dict(), ensure_ascii=False, indent=2))
-        sys.stderr.write(f"kalan: {exc.message} ({exc.code})\n")
+        sys.stderr.write(_error_text(exc) + "\n")
         return 1
     if args.json:
         print(json.dumps(out.data, ensure_ascii=False, indent=2, default=str))
+    elif out.raw is not None:
+        sys.stdout.write(out.raw)
     else:
         for line in out.lines:
             print(line)
+    for note in out.notes:
+        sys.stderr.write(note + "\n")
     return 0
 
 
-def build_parser() -> tuple[argparse.ArgumentParser, dict]:
-    from kalan.commands import load
+def _lang_from_argv(argv: list[str]) -> str | None:
+    for i, item in enumerate(argv):
+        if item == "--lang" and i + 1 < len(argv):
+            return argv[i + 1]
+        if item.startswith("--lang="):
+            return item.split("=", 1)[1]
+    return None
 
-    parser = argparse.ArgumentParser(prog="kalan", description="Local, installment-first credit card tracker.")
-    parser.add_argument("--version", action="version", version=f"kalan {__version__}")
-    parser.add_argument("--data-dir", help="folder of the kalan database (default: KALAN_DATA_DIR or the user "
-                        "data folder)")
-    sub = parser.add_subparsers(dest="command", required=True, metavar="<command>")
-    p_serve = sub.add_parser("serve", help=f"run the HTTP API on {HOST}")
-    p_serve.add_argument("--port", type=int, default=DEFAULT_PORT,
-                         help=f"port (default {DEFAULT_PORT}; 0 picks a free port)")
-    p_serve.add_argument("--print-port", action="store_true",
-                         help='print one JSON line {"event":"ready","port":N} to stdout when listening')
-    sub.add_parser("mcp", help="read-only MCP server on stdio, for Claude Code, Codex or Gemini CLI")
-    p_tpl = sub.add_parser("template", help="work with declarative bank templates")
+
+def build_parser() -> tuple[argparse.ArgumentParser, dict]:
+    from kalan.commands import helptext, load
+    from kalan.i18n import LANGS, t
+
+    parser = argparse.ArgumentParser(prog="kalan", description=t("cli.description"))
+    parser.add_argument("--version", action="version", version=f"kalan {__version__}", help=t("cli.version"))
+    parser.add_argument("--data-dir", help=t("cli.data_dir"))
+    parser.add_argument("--lang", choices=LANGS, help=t("cli.lang"))
+    sub = parser.add_subparsers(dest="command", required=True, metavar=t("cli.command"))
+    p_serve = sub.add_parser("serve", help=t("help.serve", host=HOST))
+    p_serve.add_argument("--port", type=int, default=DEFAULT_PORT, help=t("help.serve.port", port=DEFAULT_PORT))
+    p_serve.add_argument("--print-port", action="store_true", help=t("help.serve.print_port"))
+    sub.add_parser("mcp", help=t("help.mcp"))
+    p_tpl = sub.add_parser("template", help=t("help.template"))
     tsub = p_tpl.add_subparsers(dest="template_command", required=True)
-    p_check = tsub.add_parser("check", help="validate a template and run it on one statement")
-    p_check.add_argument("file", help="template YAML file")
-    p_check.add_argument("statement", help="statement PDF (or .txt with the extracted text)")
-    p_check.add_argument("--quiet", action="store_true", help="counts and statuses only, no values")
-    tsub.add_parser("schema", help="print the template JSON Schema")
+    p_check = tsub.add_parser("check", help=t("help.template.check"))
+    p_check.add_argument("file", help=t("help.template.file"))
+    p_check.add_argument("statement", help=t("help.template.statement"))
+    p_check.add_argument("--quiet", action="store_true", help=t("help.template.quiet"))
+    tsub.add_parser("schema", help=t("help.template.schema"))
 
     by_name = {}
     for cmd in load().values():
-        p = sub.add_parser(cmd.name, aliases=list(cmd.aliases), help=cmd.help, description=cmd.help)
+        text = helptext(cmd.help)
+        p = sub.add_parser(cmd.name, aliases=list(cmd.aliases), help=text, description=text)
         for names, kwargs in cmd.args:
-            p.add_argument(*names, **kwargs)
-        p.add_argument("--json", action="store_true", help="print JSON (money in minor units) instead of a table")
+            p.add_argument(*names, **{**kwargs, "help": helptext(kwargs.get("help"))})
+        p.add_argument("--json", action="store_true", help=t("cli.json"))
+        p.add_argument("--lang", choices=LANGS, default=argparse.SUPPRESS, help=t("cli.lang"))
         for name in (cmd.name, *cmd.aliases):
             by_name[name] = cmd
     return parser, by_name
 
 
 def main(argv: list[str] | None = None, *, kalan=None) -> int:
-    parser, data_commands = build_parser()
-    args = parser.parse_args(argv)
+    from kalan import i18n
+
+    argv = list(sys.argv[1:] if argv is None else argv)
+    i18n.set_lang(i18n.resolve_lang(_lang_from_argv(argv)))
+    _utf8_stdout()
+    saved_gettext = argparse._
+    argparse._ = i18n.argparse_gettext  # argparse's own words ("usage:", "options" ...) in the same language
+    try:
+        parser, data_commands = build_parser()
+        args = parser.parse_args(argv)
+    finally:
+        argparse._ = saved_gettext
     if args.data_dir:
         os.environ["KALAN_DATA_DIR"] = args.data_dir
     if args.command in data_commands:

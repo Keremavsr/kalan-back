@@ -8,7 +8,8 @@ import re
 from pydantic import ValidationError
 
 from kalan.amounts import decimal_to_minor
-from kalan.commands import Out, arg, command, money_for, shorten, table
+from kalan.commands import Out, arg, cols, command, money_for, shorten, table
+from kalan.i18n import t, word
 from kalan.service import Kalan, ServiceError
 from kalan.simulate import SimulationIn
 
@@ -33,8 +34,8 @@ def parse_amount_arg(text: str, currency: str) -> int:
     return decimal_to_minor(f"{whole}.{frac}" if frac else whole, currency)
 
 
-@command("takvim", "schedule", order=30, help="installments already committed for the coming months", args=[
-    arg("-n", "--months", type=int, help="number of months (default: the months_ahead setting)"),
+@command("takvim", "schedule", order=30, help="help.takvim", args=[
+    arg("-n", "--months", type=int, help="help.months"),
 ])
 def schedule(k: Kalan, a: argparse.Namespace) -> Out:
     if a.months is not None and not 1 <= a.months <= 60:
@@ -43,27 +44,27 @@ def schedule(k: Kalan, a: argparse.Namespace) -> Out:
     money = money_for(k)
     fixed = {m.month: m.total for m in s.fixed.months}
     has_fixed = any(fixed.values())
-    headers = ["Month", "Installments", "Plans"] + (["Fixed costs"] if has_fixed else [])
+    headers = cols("month", "installments", "plans") + (cols("fixed") if has_fixed else [])
     rows = [[m.month, money(m.total, s.currency), len(m.items)] + ([money(fixed.get(m.month, 0))] if has_fixed else [])
             for m in s.months]
     lines = table(headers, rows, right=[1, 2, 3])
     if s.plans:
         lines += ["", *table(
-            ["Plan", "Source", "Each", "Left", "Ends", "Remaining"],
-            [[shorten(p.description), p.source, money(p.amount_each), p.remaining_count, p.ends,
+            cols("plan", "source", "each", "left", "ends", "remaining"),
+            [[shorten(p.description), word("source", p.source), money(p.amount_each), p.remaining_count, p.ends,
               money(p.total_remaining)] for p in s.plans],
             right=[2, 3, 5],
         )]
-    lines.append(f"Amounts in {s.currency}.")
+    lines.append(t("amounts_in", currency=money.unit(s.currency)))
     return Out(s.model_dump(mode="json"), lines)
 
 
-@command("simule", "simulate", order=70, help="what if I buy this in installments?", args=[
-    arg("amount", help="purchase amount, e.g. 9.999,99"),
-    arg("count", type=int, help="number of installments"),
-    arg("--start", help="month of the first installment, YYYY-MM (default: the next statement month)"),
-    arg("--interest", help="interest in percent per month, e.g. 3.11 (default: none)"),
-    arg("-n", "--months", type=int, help="window length in months (default: covers the plan)"),
+@command("simule", "simulate", order=70, help="help.simule", args=[
+    arg("amount", help="help.simule.amount"),
+    arg("count", type=int, help="help.simule.count"),
+    arg("--start", help="help.simule.start"),
+    arg("--interest", help="help.simule.interest"),
+    arg("-n", "--months", type=int, help="help.simule.months"),
 ])
 def simulate(k: Kalan, a: argparse.Namespace) -> Out:
     baseline = k.schedule()
@@ -79,16 +80,18 @@ def simulate(k: Kalan, a: argparse.Namespace) -> Out:
     cur = result["currency"]
     p = result["purchase"]
     each = p["installments"][0]["amount"]
+    head = t("simulate.head", amount=money(p["amount"], cur), count=p["count"], start=p["start_month"],
+             end=p["ends"], each=money(each, cur), total=money(p["total_cost"], cur))
+    if p["interest_total"]:
+        head += t("simulate.interest", interest=money(p["interest_total"], cur))
     lines = [
-        f"{money(p['amount'], cur)} in {p['count']} installments from {p['start_month']} to {p['ends']}:"
-        f" {money(each, cur)} a month, total {money(p['total_cost'], cur)}"
-        + (f" (interest {money(p['interest_total'], cur)})" if p["interest_total"] else ""),
+        head,
         "",
-        *table(["Month", "Now", "Purchase", "With it"],
+        *table(cols("month", "now", "purchase", "with"),
                [[r["month"], money(r["without"]), money(r["purchase"]) if r["purchase"] else "",
                  money(r["with"])] for r in result["months"]], right=[1, 2, 3]),
     ]
     peak = result["peak"]
     if peak["with"]:
-        lines.append(f"Busiest month with it: {peak['with']['month']} ({money(peak['with']['total'], cur)}).")
+        lines.append(t("simulate.peak", month=peak["with"]["month"], total=money(peak["with"]["total"], cur)))
     return Out(result, lines)

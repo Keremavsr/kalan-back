@@ -20,6 +20,7 @@ import kalan
 from kalan.ai import reader
 from kalan.ai.adapters import DEFAULT_TIMEOUT, Adapter, AdapterError, ProviderRegistry
 from kalan.ai.jobs import JobRunner
+from kalan.alerts import compute_alerts
 from kalan.amounts import month_key
 from kalan.api.errors import ApiError, error_response, install
 from kalan.config import Config
@@ -437,6 +438,13 @@ def create_app(
     def get_subscriptions() -> dict[str, Any]:
         items = subscriptions(store.all_statements(), store.loose_transactions(), store.model_recurring_ids())
         return {"items": items}
+
+    @app.get("/alerts")
+    def get_alerts() -> dict[str, Any]:
+        statements = store.all_statements()
+        subs = subscriptions(statements, store.loose_transactions(), store.model_recurring_ids())
+        alerts = compute_alerts(statements, current_schedule(None), subs)
+        return {"items": [a.model_dump(mode="json") for a in alerts]}
 
     # -- model analysis ---------------------------------------------------------------------------
 

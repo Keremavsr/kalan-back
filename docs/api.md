@@ -1,7 +1,7 @@
 # kalan API contract v0.2.0
 
 Changes from v0.1.1: AI fallback reader and `needs_review` on statements, `POST /statements/{id}/template-draft`
-(see "Statements"); CSV/OFX/QIF imports (`source: "import"`); `POST /simulate/installment`. Every v0.1.1 route and field is unchanged.
+(see "Statements"); CSV/OFX/QIF imports (`source: "import"`); `POST /simulate/installment`; `GET /alerts`. Every v0.1.1 route and field is unchanged.
 
 Back end: `kalan-back` (Python, FastAPI). Listens on `127.0.0.1:8765` only. JSON, UTF-8.
 Front end: `kalan-front` (separate repo) talks to it only over HTTP. Base URL configurable (`VITE_KALAN_API`, default `http://127.0.0.1:8765`).
@@ -102,6 +102,23 @@ Each plan also has `"source":"statement|manual|import"`. Every schedule item and
   installments, the division remainder in the first. With `interest_monthly` (percent per month): equal annuity
   payments, interest on the open balance, the last installment closes it exactly. A peak tie goes to the earlier month.
   Nothing is stored.
+
+## Alerts (v0.2.0, computed by code)
+- `GET /alerts` -> `{"items":[{"id":"al_..","kind","severity":"info|warning|critical","month":"YYYY-MM",
+  "message_key":"alert.<kind>","params":{...},"refs":{"statement_ids":[],"transaction_ids":[],"plan_ids":[]}}]}`,
+  sorted critical first, then by month. Ids are stable while the data does not change. "This period" is the latest
+  statement of each card (bank + last four digits). The front end translates `message_key` with `params`.
+
+| kind | severity | params | when |
+| --- | --- | --- | --- |
+| `installment_ending` | info | description, amount_each, currency, kind | a plan's last installment is in the next statement month (schedule `start_month`) |
+| `limit_high` | warning, critical at >= 100% | used_share ("0.86"), statement_total, credit_limit, currency | statement total above 80% of the printed limit |
+| `interest_charged` | warning | count, total, currency | interest rows this period |
+| `fee_charged` / `tax_charged` | info | count, total, currency | fee / tax rows this period |
+| `foreign_currency` | info | count, currencies, total, currency | rows with an original foreign amount this period |
+| `missing_statement` | warning | bank, card_last4 | a month missing between two stored statements of a card |
+| `subscription_price_rise` | info | merchant, amount_previous, amount_last, price_change, currency | a subscription's last charge is higher than the one before |
+| `due_soon` | warning, critical at <= 1 day | due_date, days_left, statement_total, minimum_payment, currency | due date within 5 days and a balance is owed |
 
 ## Model analysis (one call per statement)
 - `POST /statements/{id}/analyze` -> 202 `{"job_id":"job_01","status":"pending"}`

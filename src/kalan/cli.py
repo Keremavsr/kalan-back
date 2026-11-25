@@ -19,6 +19,7 @@ type, because an exception message could quote statement content.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import copy
 import json
 import logging
@@ -107,10 +108,44 @@ def serve(port: int, print_port: bool) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
+def _utf8_stdout() -> None:
+    """Pipes and files get UTF-8 (scripts read ``--json``); a console keeps its encoding, never crashing."""
+    stream = sys.stdout
+    reconfigure = getattr(stream, "reconfigure", None)
+    if reconfigure is None:
+        return
+    with contextlib.suppress(OSError, ValueError):
+        reconfigure(encoding="utf-8") if not stream.isatty() else reconfigure(errors="replace")
+
+
+def run_data_command(cmd, args: argparse.Namespace, kalan=None) -> int:
+    from kalan.service import Kalan, ServiceError
+
+    _utf8_stdout()
+    try:
+        k = kalan or Kalan()
+        out = cmd.handler(k, args)
+    except ServiceError as exc:
+        if args.json:
+            print(json.dumps(exc.as_dict(), ensure_ascii=False, indent=2))
+        sys.stderr.write(f"kalan: {exc.message} ({exc.code})\n")
+        return 1
+    if args.json:
+        print(json.dumps(out.data, ensure_ascii=False, indent=2, default=str))
+    else:
+        for line in out.lines:
+            print(line)
+    return 0
+
+
+def build_parser() -> tuple[argparse.ArgumentParser, dict]:
+    from kalan.commands import load
+
     parser = argparse.ArgumentParser(prog="kalan", description="Local, installment-first credit card tracker.")
     parser.add_argument("--version", action="version", version=f"kalan {__version__}")
-    sub = parser.add_subparsers(dest="command", required=True)
+    parser.add_argument("--data-dir", help="folder of the kalan database (default: KALAN_DATA_DIR or the user "
+                        "data folder)")
+    sub = parser.add_subparsers(dest="command", required=True, metavar="<command>")
     p_serve = sub.add_parser("serve", help=f"run the HTTP API on {HOST}")
     p_serve.add_argument("--port", type=int, default=DEFAULT_PORT,
                          help=f"port (default {DEFAULT_PORT}; 0 picks a free port)")
@@ -123,7 +158,25 @@ def main(argv: list[str] | None = None) -> int:
     p_check.add_argument("statement", help="statement PDF (or .txt with the extracted text)")
     p_check.add_argument("--quiet", action="store_true", help="counts and statuses only, no values")
     tsub.add_parser("schema", help="print the template JSON Schema")
+
+    by_name = {}
+    for cmd in load().values():
+        p = sub.add_parser(cmd.name, aliases=list(cmd.aliases), help=cmd.help, description=cmd.help)
+        for names, kwargs in cmd.args:
+            p.add_argument(*names, **kwargs)
+        p.add_argument("--json", action="store_true", help="print JSON (money in minor units) instead of a table")
+        for name in (cmd.name, *cmd.aliases):
+            by_name[name] = cmd
+    return parser, by_name
+
+
+def main(argv: list[str] | None = None, *, kalan=None) -> int:
+    parser, data_commands = build_parser()
     args = parser.parse_args(argv)
+    if args.data_dir:
+        os.environ["KALAN_DATA_DIR"] = args.data_dir
+    if args.command in data_commands:
+        return run_data_command(data_commands[args.command], args, kalan)
     if args.command == "template":
         if args.template_command == "schema":
             from kalan.parsers.template import template_json_schema

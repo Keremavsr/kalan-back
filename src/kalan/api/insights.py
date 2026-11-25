@@ -12,6 +12,7 @@ from kalan.api.errors import ApiError
 from kalan.imports import import_plans
 from kalan.insights.card_fee import find_card_fees, placeholders_kept, refund_letter_prompt
 from kalan.insights.context import current_schedule, rule_overrides
+from kalan.insights.early_payoff import payoff, payoff_overview
 from kalan.insights.forecast import DEFAULT_HISTORY, MIN_HISTORY, backtest, next_statement_forecast
 from kalan.insights.minimum import latest_statement, minimum_payment_plan
 from kalan.insights.rules import OVERRIDES_KEY, RuleOverrides, card_rules
@@ -21,6 +22,7 @@ from kalan.models import Statement
 from kalan.store import Store
 
 router = APIRouter(prefix="/insights", tags=["insights"])
+MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
 
 
 def _store(request: Request) -> Store:
@@ -172,3 +174,26 @@ def forecast_backtest(
 ) -> dict[str, Any]:
     return backtest(**_forecast_inputs(_store(request)), include_fixed=include_fixed, history=history,
                     min_history=min_history)
+
+
+# -- 6. early payoff --------------------------------------------------------------------------------
+
+
+@router.get("/early-payoff")
+def early_payoff_overview(request: Request) -> dict[str, Any]:
+    store = _store(request)
+    return payoff_overview(current_schedule(store), store.all_statements())
+
+
+@router.get("/early-payoff/{plan_id}")
+def early_payoff(
+    request: Request, plan_id: str, month: Annotated[str | None, Query(pattern=MONTH_PATTERN)] = None
+) -> dict[str, Any]:
+    sched = current_schedule(_store(request))
+    if month is not None and month not in {m.month for m in sched.months}:
+        raise ApiError(422, "month_outside_schedule", "The payoff month must be inside the schedule window.",
+                       {"start_month": sched.start_month, "months": len(sched.months)})
+    result = payoff(sched, plan_id, month)
+    if result is None:
+        raise ApiError(404, "plan_not_found", "No open installment plan with this id.", {"id": plan_id})
+    return result

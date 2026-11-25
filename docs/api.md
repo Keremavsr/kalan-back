@@ -221,3 +221,16 @@ prompt the user copies or sends themselves.
   earlier statement months is forecast from earlier data only. `mae` mean absolute error (minor units), `mape` mean
   of |error| / actual over months with spend, `bias` mean signed error (positive = forecast too high); all `null`
   when no month qualifies.
+
+### Early payoff (`kalan.insights.early_payoff.payoff`, `payoff_overview`, `closed_early`)
+- `GET /insights/early-payoff` -> `{"currency","start_month","plans":[Payoff],"closed_early":[{"plan_id","statement_id","month","transaction_id","index","total_count"}]}`:
+  every open plan paid off in the first schedule month, and plans a statement already shows as closed before their
+  last installment (an `early_payoff` row, or a row marked last below the plan length).
+- `GET /insights/early-payoff/{plan_id}?month=YYYY-MM` (default: first schedule month) -> `Payoff` =
+  `{"plan_id","description","kind","source","currency","payoff_month","remaining_count","amount_each","remaining_total","discount_rule":"unknown","note",
+  "breakdown":{"principal","interest","bsmv","kkdf"}|null,"remaining_principal":int|null,"would_save_if_future_interest_dropped":int|null,
+  "schedule_effect":[{"month","without","with"}]}`. Installments before `month` are billed as usual; all later ones
+  are billed together in `month`. kalan knows no bank's payoff discount: `remaining_total` is the plain remaining
+  amount; for a cash advance with a printed split, `remaining_principal` is what it would be if the bank dropped the
+  future vade farkı, BSMV and KKDF. A purchase plan has no separate interest (`remaining_principal` =
+  `remaining_total`). 404 `plan_not_found`, 422 `month_outside_schedule`.

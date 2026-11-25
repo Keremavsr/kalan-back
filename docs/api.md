@@ -1,7 +1,7 @@
 # kalan API contract v0.3.0
 
 Changes from v0.2.0: encrypted PDFs (`password` / `remember_password` on `POST /statements`, `/pdf-passwords`);
-save gate (422 `save_blocked`, `review` on statements, see "Save gate"). Every v0.2.0 route and field is unchanged;
+save gate (422 `save_blocked`, `review` on statements, see "Save gate"); `POST /diagnose`. Every v0.2.0 route and field is unchanged;
 `needs_review` is now also set by soft save-gate findings, not only by the AI fallback.
 
 Changes from v0.1.1: AI fallback reader and `needs_review` on statements, `POST /statements/{id}/template-draft`
@@ -112,6 +112,29 @@ after this statement, `null` when the bank does not print it.
 `original_amount` / `original_currency`: the foreign amount of a charge made in another currency. `points`: the
 loyalty points cell as printed. `detail`: sub-lines the bank prints under a row (bill reference, installment note,
 exchange note), joined with ` | `, redacted like the rest of the text; never rows of their own.
+
+## Diagnosis (v0.3.0)
+- `POST /diagnose` multipart `file` (PDF, max 10 MB), optional form field `password` -> 200
+  `{"report":DiagnosisReport,"text":"plain-text report for an issue form"}`. Nothing is stored. Same errors as the
+  upload: 413, 415 `not_pdf`, 422 `pdf_password_required` / `pdf_password_wrong` / `invalid_pdf`.
+
+`DiagnosisReport` holds the statement's structure only. Each line is a shape: digits -> `9`, lower-case letters ->
+`a`, upper-case -> `A`, punctuation and single spaces kept, a run of 3+ spaces -> `<N sp>`. No text or amount survives.
+```json
+{"kalan_version":"0.1.0","page_count":3,"has_text":true,"line_count":132,"lines_per_page":[100,26,6],
+ "number_styles":{"1.234,56":39,"1,234.56":0,"1 234,56":0},
+ "date_styles":{"DD.MM.YYYY":0,"DD/MM/YYYY":0,"YYYY-MM-DD":0,"DD.MM.YY":0,"D Month YYYY":13},
+ "templates":[{"id":"tr_garanti_bonus","detected":true,"anchors":{
+    "detect_all":{"found":5,"total":5,"missing":[]},"detect_none_present":[],
+    "header_fields":{"statement_total":true,"due_date":true},"table_header":{"found":5,"total":5,"missing":[]},
+    "table_end":true,"summary_title":true}}],
+ "shapes":[{"page":1,"shape":"Aaaaa Aaaaaa","repeat":1},{"page":1,"shape":"9.999,99 AA","repeat":2}],
+ "shapes_truncated":false}
+```
+`anchors` (template parsers only) names kalan's own template phrases that were found or missing; `has_text:false`
+means a scanned image without a text layer. At most 600 shapes; consecutive equal shapes are merged with `repeat`.
+The Python entry point is `kalan.diagnose.diagnose(path_or_bytes, password=None) -> dict` (`as_text(report)` for
+the plain-text form). The issue form `.github/ISSUE_TEMPLATE/bank-not-supported.yml` asks for the `text`.
 
 ## Imports (v0.2.0)
 - `POST /imports` multipart `file` (CSV, OFX/QFX or QIF, max 10 MB), optional form fields `format` (`csv|ofx|qif`,

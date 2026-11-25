@@ -25,6 +25,7 @@ from kalan.alerts import compute_alerts
 from kalan.amounts import month_key
 from kalan.api.errors import ApiError, error_response, install
 from kalan.config import Config
+from kalan.diagnose import as_text, diagnose
 from kalan.imports import ImportFileError, Mapping, import_plans, parse_import
 from kalan.models import Direction, FixedCost, InstallmentInfo, Locale, ManualInstallment, Statement, Transaction
 from kalan.parsers import ParseError, StatementParser, UnknownFormatError, all_parsers
@@ -351,6 +352,38 @@ def create_app(
                     log.info("pdf password not remembered: no keyring")
             response.headers[PASSWORD_REMEMBERED_HEADER] = "true" if remembered else "false"
         return saved.model_dump(mode="json")
+
+    # -- anonymous diagnosis ------------------------------------------------------------------------
+
+    @app.post("/diagnose")
+    def post_diagnose(
+        file: Annotated[UploadFile, File()],
+        password: Annotated[str | None, Form(max_length=200)] = None,
+    ) -> dict[str, Any]:
+        """Structure-only report of a statement kalan could not read. Nothing is stored."""
+        data = file.file.read(config.max_upload_bytes + 1)
+        if len(data) > config.max_upload_bytes:
+            raise ApiError(413, "file_too_large", "The file is larger than 10 MB.",
+                           {"max_bytes": config.max_upload_bytes})
+        if not data.startswith(PDF_MAGIC):
+            raise ApiError(415, "not_pdf", "The file is not a PDF.")
+        password = password or None
+        try:
+            report = diagnose(data, password=password)
+        except PasswordError as exc:
+            if exc.wrong:
+                raise ApiError(422, "pdf_password_wrong", "The password does not open this PDF.",
+                               {"hints": password_hints()}) from None
+            found = pdf_passwords.open_with_remembered(data, bank_ids(), read=diagnose)
+            if found is None:
+                raise ApiError(422, "pdf_password_required", "The PDF is encrypted. Send its password.",
+                               {"hints": password_hints()}) from None
+            report = found[0]
+        except Exception as exc:
+            log.info("diagnose rejected: %s", type(exc).__name__)
+            raise ApiError(422, "invalid_pdf", "The PDF could not be opened.") from None
+        log.info("diagnose: %d pages, %d lines", report["page_count"], report["line_count"])
+        return {"report": report, "text": as_text(report)}
 
     # -- remembered PDF passwords (OS keyring only) -----------------------------------------------
 

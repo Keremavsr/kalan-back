@@ -77,10 +77,10 @@ def remembered_banks(banks: Iterable[str]) -> list[str]:
     return [b for b in banks if get(b) is not None]
 
 
-def open_with_remembered(
-    source: str | Path | bytes, banks: Iterable[str], read: Callable[..., str] = extract_text
-) -> tuple[str, str] | None:
-    """Try every remembered password on an encrypted PDF: ``(text, bank)`` of the first that opens it."""
+def open_with_remembered[T](
+    source: str | Path | bytes, banks: Iterable[str], read: Callable[..., T] = extract_text
+) -> tuple[T, str] | None:
+    """Try every remembered password on an encrypted PDF: ``(read(...), bank)`` of the first that opens it."""
     for bank in banks:
         password = get(bank)
         if password is None:

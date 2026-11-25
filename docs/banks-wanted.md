@@ -1,7 +1,7 @@
 # Banks wanted
 
 kalan ships a bank only when it has a synthetic sample that is faithful to the real statement: the same
-line structure in PyMuPDF `get_text()` output, the same labels, number and date formats, and the same
+line structure in `kalan.pdf.extract_text()` output, the same labels, number and date formats, and the same
 summary block, so that the ground-truth tests mean something. Public documentation (help pages, sample
 images in marketing material) does not show that structure, so none of the banks below is shipped yet.
 

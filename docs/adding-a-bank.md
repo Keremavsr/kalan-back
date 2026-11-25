@@ -6,7 +6,8 @@ layout.
 
 ## Before you start: look at the text, not the PDF
 
-Both paths read the output of PyMuPDF `page.get_text()` for each page, joined with a form feed.
+Both paths read the output of `kalan.pdf.extract_text()`: one line per printed cell (a label and its value
+usually land on two lines), in drawing order, pages joined with a form feed.
 Print it for a statement of your own and study the line structure:
 
 ```python

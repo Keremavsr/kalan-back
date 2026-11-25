@@ -9,6 +9,8 @@ sum of four parts:
 * ``fixed``: fixed costs due that month (only with ``include_fixed``; they may not be paid by card);
 * ``variable``: the median of the earlier months' other spend (spend minus installment rows, minus
   subscription rows), over at most ``history`` months; at least what is already known for the month.
+  With ``include_fixed``, rows matched to a fixed cost (``fixed_tx_ids``) are left out of it, so a
+  fixed cost paid by card is not counted twice.
 
 The backtest replays this on every past month that has enough history, using only data from before
 that month, and reports the error against what the statements actually show.
@@ -39,10 +41,12 @@ def _spend_rows(rows: list[tuple[str, Transaction]], currency: str) -> list[tupl
     return [(m, t) for m, t in rows if t.currency == currency and t.direction == "debit" and t.kind not in NOT_SPEND]
 
 
-def _split(txs: list[Transaction], subs: set[str]) -> dict[str, int]:
-    out = {"installments": 0, "subscriptions": 0, "variable": 0}
+def _split(txs: list[Transaction], subs: set[str], fixed_ids: frozenset[str] = frozenset()) -> dict[str, int]:
+    out = {"installments": 0, "subscriptions": 0, "variable": 0, "fixed": 0}
     for t in txs:
-        if t.installment is not None:
+        if t.id in fixed_ids:
+            out["fixed"] += t.amount
+        elif t.installment is not None:
             out["installments"] += t.amount
         elif _merchant(t) in subs:
             out["subscriptions"] += t.amount
@@ -62,6 +66,7 @@ def forecast_month(
     model_recurring: set[str] | None = None,
     include_fixed: bool = True,
     history: int = DEFAULT_HISTORY,
+    fixed_tx_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     """Forecast of the spend billed in ``month`` from data attributed to earlier months only
     (loose rows dated in ``month`` count as already known)."""
@@ -87,11 +92,12 @@ def forecast_month(
     sub_total = sum(s["amount_last"] for s in active_subs)
 
     window = [m for m in data_months if months_between(m, month) <= history]
-    variable_hist = [_split(by_month[m], sub_names)["variable"] for m in window]
+    fixed_ids = frozenset(fixed_tx_ids or ()) if include_fixed else frozenset()
+    variable_hist = [_split(by_month[m], sub_names, fixed_ids)["variable"] for m in window]
     variable_median = int(Decimal(median(variable_hist)).quantize(Decimal(1), rounding=ROUND_HALF_UP)) \
         if variable_hist else 0
     known_variable = _split([t for _, t in _spend_rows([("", t) for t in known_loose], currency)
-                             if t.installment is None], sub_names)["variable"]
+                             if t.installment is None], sub_names, fixed_ids)["variable"]
     variable = max(variable_median, known_variable)
 
     fixed = fixed_series(fixed_costs or [], [month], currency).months[0].total if fixed_costs else 0
@@ -128,6 +134,7 @@ def backtest(
     include_fixed: bool = True,
     history: int = DEFAULT_HISTORY,
     min_history: int = MIN_HISTORY,
+    fixed_tx_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     """Forecast every past statement month that has ``min_history`` earlier months of statements, and compare.
 
@@ -140,7 +147,7 @@ def backtest(
         if i < min_history:
             continue
         f = forecast_month(m, statements, [t for t in loose if month_key(t.date) < m], currency, manual_plans,
-                           imported_plans, fixed_costs, model_recurring, include_fixed, history)
+                           imported_plans, fixed_costs, model_recurring, include_fixed, history, fixed_tx_ids)
         actual = actual_spend(m, statements, loose, currency)
         rows.append({"month": m, "forecast": f["total"], "actual": actual, "error": f["total"] - actual,
                      "parts": f["parts"]})
@@ -186,12 +193,13 @@ def next_statement_forecast(
     model_recurring: set[str] | None = None,
     include_fixed: bool = True,
     today: date | None = None,
+    fixed_tx_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     """Open period, forecast of the next statement month and the backtest error next to it."""
     today = today or date.today()
     month = add_months(month_key(max(s.period_end for s in statements)), 1) if statements else month_key(today)
     args = (manual_plans, imported_plans, fixed_costs, model_recurring, include_fixed)
-    forecast = forecast_month(month, statements, loose, currency, *args)
-    test = backtest(statements, loose, currency, *args)
+    forecast = forecast_month(month, statements, loose, currency, *args, fixed_tx_ids=fixed_tx_ids)
+    test = backtest(statements, loose, currency, *args, fixed_tx_ids=fixed_tx_ids)
     return {"open_period": open_period(statements, loose, today), "forecast": forecast,
             "backtest": {k: v for k, v in test.items() if k != "months"}}

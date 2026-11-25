@@ -10,9 +10,11 @@ from fastapi import APIRouter, Query, Request, Response
 from kalan.ai.adapters import DEFAULT_TIMEOUT, Adapter, AdapterError
 from kalan.api.errors import ApiError
 from kalan.imports import import_plans
+from kalan.insights.cancellations import CancelledSubscription, add_cancelled, list_cancelled, remove_cancelled
 from kalan.insights.card_fee import find_card_fees, placeholders_kept, refund_letter_prompt
 from kalan.insights.context import current_schedule, rule_overrides
 from kalan.insights.early_payoff import payoff, payoff_overview
+from kalan.insights.fixed_match import fixed_cost_report, matched_transaction_ids
 from kalan.insights.forecast import DEFAULT_HISTORY, MIN_HISTORY, backtest, next_statement_forecast
 from kalan.insights.minimum import latest_statement, minimum_payment_plan
 from kalan.insights.rules import OVERRIDES_KEY, RuleOverrides, card_rules
@@ -149,14 +151,16 @@ def share_card_svg(request: Request, locale: CardLocale = "tr", amounts: bool = 
 
 
 def _forecast_inputs(store: Store) -> dict[str, Any]:
+    statements, loose, costs = store.all_statements(), store.loose_transactions(), store.fixed_costs()
     return {
-        "statements": store.all_statements(),
-        "loose": store.loose_transactions(),
+        "statements": statements,
+        "loose": loose,
         "currency": store.get_settings().base_currency,
         "manual_plans": store.manual_plans(),
         "imported_plans": import_plans(store.import_transactions()),
-        "fixed_costs": store.fixed_costs(),
+        "fixed_costs": costs,
         "model_recurring": store.model_recurring_ids(),
+        "fixed_tx_ids": matched_transaction_ids(costs, statements, loose),
     }
 
 
@@ -197,3 +201,29 @@ def early_payoff(
     if result is None:
         raise ApiError(404, "plan_not_found", "No open installment plan with this id.", {"id": plan_id})
     return result
+
+
+# -- 7. cancelled subscriptions (alerts) and fixed-cost matching ------------------------------------
+
+
+@router.get("/cancelled-subscriptions")
+def get_cancelled(request: Request) -> dict[str, Any]:
+    return {"items": list_cancelled(_store(request))}
+
+
+@router.post("/cancelled-subscriptions", status_code=201)
+def post_cancelled(request: Request, body: CancelledSubscription) -> dict[str, Any]:
+    return {"items": add_cancelled(_store(request), body)}
+
+
+@router.delete("/cancelled-subscriptions", status_code=204)
+def delete_cancelled(request: Request, merchant: Annotated[str, Query(min_length=1)]) -> Response:
+    if not remove_cancelled(_store(request), merchant):
+        raise ApiError(404, "cancellation_not_found", "No cancelled subscription with this merchant.")
+    return Response(status_code=204)
+
+
+@router.get("/fixed-costs/matches")
+def fixed_cost_matches(request: Request) -> dict[str, Any]:
+    store = _store(request)
+    return fixed_cost_report(store.fixed_costs(), store.all_statements(), store.loose_transactions())

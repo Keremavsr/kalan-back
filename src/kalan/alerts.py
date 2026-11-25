@@ -8,9 +8,10 @@ each card (same bank and last four digits).
 
 from __future__ import annotations
 
+import calendar
 import hashlib
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 from itertools import pairwise
 from typing import Any, Literal
 
@@ -19,10 +20,12 @@ from pydantic import BaseModel, Field
 from kalan.amounts import add_months, months_between
 from kalan.models import Statement
 from kalan.schedule import Schedule
+from kalan.text import fold, normalize_merchant
 
 Severity = Literal["info", "warning", "critical"]
 LIMIT_WARNING = 0.80
 DUE_SOON_DAYS = 5
+OVERDUE_GRACE_DAYS = 7
 _SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 _CHARGE_KINDS = (("interest", "interest_charged", "warning"), ("fee", "fee_charged", "info"),
                  ("tax", "tax_charged", "info"))
@@ -68,7 +71,9 @@ def compute_alerts(
     schedule: Schedule,
     subscriptions: list[dict[str, Any]],
     today: date | None = None,
+    cancelled: list[dict[str, Any]] | None = None,
 ) -> list[Alert]:
+    """``cancelled``: subscriptions the user marked as cancelled, ``[{"merchant", "cancelled_on"}]``."""
     today = today or date.today()
     out: list[Alert] = []
     latest = latest_per_card(statements)
@@ -146,7 +151,47 @@ def compute_alerts(
                 Refs(), sub["merchant"],
             ))
 
+    out += _statement_overdue(latest, statements, today) + _charged_after_cancel(statements, cancelled or [])
     return sorted(out, key=lambda a: (_SEVERITY_ORDER[a.severity], a.month, a.kind, a.id))
+
+
+def _statement_overdue(latest: list[Statement], statements: list[Statement], today: date) -> list[Alert]:
+    """A card's next statement should exist by now (expected cut-off + grace days) but was not uploaded."""
+    out = []
+    for st in latest:
+        y, m = (st.period_end.year, st.period_end.month + 1) if st.period_end.month < 12 else (
+            st.period_end.year + 1, 1)
+        nxt = st.next_period_end or date(y, m, min(st.period_end.day, calendar.monthrange(y, m)[1]))
+        if today > nxt + timedelta(days=OVERDUE_GRACE_DAYS):
+            out.append(_alert(
+                "statement_overdue", "warning", f"{nxt.year:04d}-{nxt.month:02d}",
+                {"bank": st.bank, "card_last4": st.card_last4, "expected_cut_off": nxt.isoformat(),
+                 "days_overdue": (today - nxt).days},
+                Refs(statement_ids=[st.id]), st.bank, st.card_last4 or "", nxt,
+            ))
+    return out
+
+
+def _charged_after_cancel(statements: list[Statement], cancelled: list[dict[str, Any]]) -> list[Alert]:
+    """A debit from a merchant the user marked as cancelled, dated after the cancellation."""
+    out = []
+    for c in cancelled:
+        key = fold(normalize_merchant(c["merchant"]))
+        since = date.fromisoformat(c["cancelled_on"])
+        if len(key) < 4:
+            continue
+        for st in statements:
+            rows = [t for t in st.transactions if t.direction == "debit" and t.date > since
+                    and t.kind in ("purchase", "other")
+                    and key in fold(t.merchant or normalize_merchant(t.description))]
+            if rows:
+                out.append(_alert(
+                    "charged_after_cancel", "critical", st.cut_off_month,
+                    {"merchant": c["merchant"], "cancelled_on": c["cancelled_on"], "count": len(rows),
+                     "total": sum(t.amount for t in rows), "currency": st.currency},
+                    Refs(statement_ids=[st.id], transaction_ids=[t.id for t in rows]), st.id, key,
+                ))
+    return out
 
 
 __all__ = ["Alert", "compute_alerts", "latest_per_card"]

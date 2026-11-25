@@ -129,6 +129,8 @@ Each plan also has `"source":"statement|manual|import"`. Every schedule item and
 | `missing_statement` | warning | bank, card_last4 | a month missing between two stored statements of a card |
 | `subscription_price_rise` | info | merchant, amount_previous, amount_last, price_change, currency | a subscription's last charge is higher than the one before |
 | `due_soon` | warning, critical at <= 1 day | due_date, days_left, statement_total, minimum_payment, currency | due date within 5 days and a balance is owed |
+| `statement_overdue` | warning | bank, card_last4, expected_cut_off, days_overdue | a card's next statement (printed next cut-off, else the same day next month) is more than 7 days past its cut-off and not uploaded |
+| `charged_after_cancel` | critical | merchant, cancelled_on, count, total, currency | a debit from a subscription marked cancelled (`/insights/cancelled-subscriptions`), dated after the cancellation |
 
 ## Model analysis (one call per statement)
 - `POST /statements/{id}/analyze` -> 202 `{"job_id":"job_01","status":"pending"}`
@@ -234,3 +236,18 @@ prompt the user copies or sends themselves.
   amount; for a cash advance with a printed split, `remaining_principal` is what it would be if the bank dropped the
   future vade farkı, BSMV and KKDF. A purchase plan has no separate interest (`remaining_principal` =
   `remaining_total`). 404 `plan_not_found`, 422 `month_outside_schedule`.
+
+### Cancelled subscriptions and fixed-cost matching (`kalan.insights.cancellations`, `kalan.insights.fixed_match.fixed_cost_report`)
+- `GET /insights/cancelled-subscriptions` -> `{"items":[{"merchant","cancelled_on"}]}`.
+- `POST /insights/cancelled-subscriptions` body `{"merchant":"ORNEK MUZIK","cancelled_on":"2099-02-28"}` -> 201 the
+  full list. Same merchant (ignoring case and accents) replaces the earlier entry; the name is redacted. Feeds the
+  `charged_after_cancel` alert (merchant matched inside the normalized row merchant, ignoring case and accents).
+- `DELETE /insights/cancelled-subscriptions?merchant=...` -> 204, 404 `cancellation_not_found`.
+- `GET /insights/fixed-costs/matches` -> `{"tolerance":{"amount":"0.075","days":2},"costs":[{"fixed_cost_id","name","amount","currency","day",
+  "matches":[{"fixed_cost_id","month","transaction_id","date","amount","amount_diff","day_diff"}],"missing_months":["2099-02"]}],
+  "duplicates":[{"fixed_cost_ids":["fc_a","fc_b"],"same_name":true,"amount_diff":40000,"day_gap":1}]}`.
+  A debit row (not an installment, same currency) matches a fixed cost when its amount is within 7.5 % and its date
+  within 2 days of the fixed cost's day (clipped in short months, across month ends). One row per fixed cost per
+  month, closest date then closest amount. `missing_months` are active months strictly between the first and the
+  last month with any data that have no match. Duplicates: overlapping periods, amounts within 7.5 %, days within 2.
+  The forecast uses these matches so a fixed cost paid by card is counted once.

@@ -26,6 +26,7 @@ from kalan.api.errors import ApiError, error_response, install
 from kalan.api.insights import router as insights_router
 from kalan.config import Config
 from kalan.imports import ImportFileError, Mapping, import_plans, parse_import
+from kalan.insights.cancellations import list_cancelled
 from kalan.models import Direction, FixedCost, InstallmentInfo, Locale, ManualInstallment, Statement, Transaction
 from kalan.parsers import ParseError, StatementParser, UnknownFormatError
 from kalan.pdf import extract_text
@@ -481,7 +482,7 @@ def create_app(
     def get_alerts() -> dict[str, Any]:
         statements = store.all_statements()
         subs = subscriptions(statements, store.loose_transactions(), store.model_recurring_ids())
-        alerts = compute_alerts(statements, current_schedule(None), subs)
+        alerts = compute_alerts(statements, current_schedule(None), subs, cancelled=list_cancelled(store))
         return {"items": [a.model_dump(mode="json") for a in alerts]}
 
     # -- model analysis ---------------------------------------------------------------------------

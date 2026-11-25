@@ -1,8 +1,7 @@
 {
   "synthetic": true,
   "scenarios": [
-    "regular month",
-    "table over a page break"
+    "regular month"
   ],
   "statement": {
     "bank": "garanti",

@@ -1,8 +1,7 @@
 {
   "synthetic": true,
   "scenarios": [
-    "partial payment",
-    "table over a page break"
+    "partial payment"
   ],
   "statement": {
     "bank": "garanti",

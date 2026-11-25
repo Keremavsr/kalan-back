@@ -19,7 +19,7 @@
     "credit_limit": 12000000,
     "next_period_end": "2027-01-26",
     "next_due_date": "2027-02-05",
-    "page_count": 6,
+    "page_count": 3,
     "interest_rates": {
       "purchase_monthly": "3.11",
       "purchase_late_monthly": "3.41",

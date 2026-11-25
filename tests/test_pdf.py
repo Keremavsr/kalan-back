@@ -56,3 +56,40 @@ def test_not_a_pdf():
 def test_size_limit():
     with pytest.raises(ValueError, match="10 MB"):
         extract_text(b"%PDF" + b"0" * (10 * 1024 * 1024))
+
+
+def _hand_written(content: str) -> bytes:
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text((10, 10), "x", fontname="helv", fontsize=1)  # adds the /helv font resource
+    doc.update_stream(page.get_contents()[0], content.encode("latin-1"))
+    return doc.tobytes()
+
+
+SPACES = " " * 100
+LAYOUTS = {
+    # a cell padded with spaces past the next cell's start: the spaces must not bridge the gap
+    "padding runs past the next cell": f"BT /helv 7.5 Tf 40 700 Td (ORNEK MARKET{SPACES}) Tj 200 0 Td (1.234,56) Tj ET",
+    "padding stops before the next cell": f"BT /helv 7.5 Tf 40 700 Td (ORNEK MARKET{SPACES}) Tj 400 0 Td (9,99) Tj ET",
+    "spaces inside one string": f"BT /helv 7.5 Tf 40 700 Td [(ORNEK MARKET{SPACES}) (1.234,56)] TJ ET",
+    "leading and trailing spaces": f"BT /helv 7.5 Tf 40 700 Td ({SPACES}BASLIK{SPACES}) Tj 0 -10 Td (KELIME) Tj ET",
+    "spaces only": f"BT /helv 7.5 Tf 40 700 Td (A) Tj 0 -10 Td ({SPACES}) Tj 0 -10 Td (B) Tj ET",
+    "outside the page": "BT /helv 7.5 Tf 40 700 Td (ORNEK) Tj 900 0 Td (GIZLI) Tj ET",
+    "rotated": "BT /helv 7.5 Tf 0 1 -1 0 30 300 Tm (DIKEY YAZI) Tj ET",
+}
+
+
+@pytest.mark.parametrize("content", LAYOUTS.values(), ids=LAYOUTS.keys())
+def test_hand_written_layouts(content):
+    data = _hand_written(content)
+    with pymupdf.open(stream=data, filetype="pdf") as doc:
+        reference = doc[0].get_text()
+    assert extract_text(data) == reference
+
+
+def test_garanti_fixtures_pad_cells_with_spaces():
+    """The synthetic Garanti text layer pads cells with real spaces like the real one (regression guard)."""
+    text = extract_text(next(p for p in FIXTURE_PDFS if p.parent.name == "garanti"))
+    assert re.search(r"\S {50,}\n", text)  # padded description cell
+    assert re.search(r"\n {50,}\S", text)  # sector title after a run of spaces
+    assert re.search(r"\n {50,}\n", text)  # spaces-only line

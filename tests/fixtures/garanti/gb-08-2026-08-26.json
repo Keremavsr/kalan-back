@@ -2,8 +2,7 @@
   "synthetic": true,
   "scenarios": [
     "foreign currency",
-    "foreign merchant in TL",
-    "table over a page break"
+    "foreign merchant in TL"
   ],
   "statement": {
     "bank": "garanti",

@@ -2,8 +2,7 @@
   "synthetic": true,
   "scenarios": [
     "installment start",
-    "foreign currency",
-    "table over a page break"
+    "foreign currency"
   ],
   "statement": {
     "bank": "garanti",

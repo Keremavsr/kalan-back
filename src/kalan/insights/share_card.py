@@ -116,7 +116,8 @@ def load_svg(schedule: Schedule, locale: CardLocale = "tr", show_amounts: bool =
                      f'font-size="22" fill="{_MUTED}">{escape(_month_name(m.month, locale, short=True))}</text>')
         if show_amounts and m.total:
             parts.append(f'<text x="{cx:.1f}" y="{base - h - 12}" text-anchor="middle" font-family="{_FONT}" '
-                         f'font-size="18" font-variant-numeric="tabular-nums" fill="{_INK}">{escape(_money(m.total, schedule.currency).split()[0])}</text>')
+                         f'font-size="18" font-variant-numeric="tabular-nums" fill="{_INK}">'
+                         f'{escape(_money(m.total, schedule.currency).split()[0])}</text>')
     if months:
         span = f"{_month_name(months[0].month, locale)} – {_month_name(months[-1].month, locale)}"
         parts.append(f'<text x="{left}" y="202" font-family="{_FONT}" font-size="26" fill="{_MUTED}">'

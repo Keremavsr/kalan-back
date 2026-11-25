@@ -96,6 +96,10 @@ Supported statements are the templates in `src/kalan/templates/` and the parsers
 To add a bank (a YAML template, no Python needed), see
 [docs/adding-a-bank.md](docs/adding-a-bank.md).
 
+Banks we would like to support, and how to help, are in [docs/banks-wanted.md](docs/banks-wanted.md).
+Statements from any other bank can still be read with the AI fallback or imported as CSV, OFX or QIF.
+Amounts accept any ISO 4217 currency and dates any day/month/year order.
+
 Test fixtures are synthetic. Never add a real statement to this repository.
 
 ## Licence

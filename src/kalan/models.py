@@ -28,6 +28,8 @@ TransactionKind = Literal[
 Source = Literal["statement", "manual", "import"]
 ReconciliationStatus = Literal["ok", "mismatch"]
 AnalysisStatus = Literal["none", "pending", "done", "failed"]
+Locale = Literal["tr", "en", "pt", "es", "he"]
+"""Languages of the model commentary: Turkish, English, Portuguese, Spanish, Hebrew."""
 ComponentRole = Literal["principal", "bsmv", "kkdf", "interest", "early_payoff"]
 
 

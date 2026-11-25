@@ -15,8 +15,10 @@ from kalan.text import fold
 
 _SPACES = "    "
 _CURRENCY_TOKENS = (
-    "R$", "US$", "TL", "TRY", "USD", "EUR", "GBP", "BRL", "MXN", "SGD", "HKD", "CAD", "€", "$", "£", "₺",
+    "R$", "US$", "MX$", "AR$", "TL", "S/", "zł", "€", "$", "£", "₺", "₪", "₹", "¥", "₩", "₽", "₫", "฿", "₱", "₦",
 )
+_ISO_PREFIX = re.compile(r"^([+-]?)([A-Z]{3})\s*(?=[\d+-])")
+_ISO_SUFFIX = re.compile(r"(?<=\d)\s*([A-Z]{3})$")
 
 
 @dataclass(frozen=True)
@@ -70,7 +72,14 @@ class ParsedAmount:
 
 
 def _strip_currency(text: str) -> tuple[str, str | None]:
+    """Remove one currency marker: any ISO 4217 code (``USD 12.00``, ``12,00 BRL``) or a known symbol."""
     t = text.strip()
+    m = _ISO_SUFFIX.search(t)
+    if m:
+        return t[: m.start()].strip(), m.group(1)
+    m = _ISO_PREFIX.match(t)
+    if m:
+        return m.group(1) + t[m.end() :].strip(), m.group(2)
     for token in _CURRENCY_TOKENS:
         if t.endswith(token):
             return t[: -len(token)].strip(), token
@@ -118,18 +127,18 @@ def format_minor(minor: int, fmt: AmountFormat = DOT_DECIMAL) -> str:
 _MONTHS: dict[str, int] = {}
 for _num, _names in enumerate(
     [
-        "ocak january janeiro enero janvier januari janv",
-        "subat february fevereiro febrero fevrier februari fevr",
-        "mart march marco marzo mars maart mrt",
-        "nisan april abril avril",
-        "mayis may mayo mai mei maio",
-        "haziran june junho junio juin juni",
-        "temmuz july julho julio juillet juli juil",
-        "agustos august agosto aout augustus",
-        "eylul september setembro septiembre septembre sept set",
-        "ekim october outubro octubre octobre oktober okt out",
-        "kasim november novembro noviembre novembre",
-        "aralik december dezembro diciembre decembre dez dic",
+        "ocak january janeiro enero janvier januari janv ינואר",
+        "subat february fevereiro febrero fevrier februari fevr פברואר",
+        "mart march marco marzo mars maart mrt מרץ",
+        "nisan april abril avril אפריל",
+        "mayis may mayo mai mei maio מאי",
+        "haziran june junho junio juin juni יוני",
+        "temmuz july julho julio juillet juli juil יולי",
+        "agustos august agosto aout augustus אוגוסט",
+        "eylul september setembro septiembre septembre sept set ספטמבר",
+        "ekim october outubro octubre octobre oktober okt out אוקטובר",
+        "kasim november novembro noviembre novembre נובמבר",
+        "aralik december dezembro diciembre decembre dez dic דצמבר",
     ],
     start=1,
 ):

@@ -25,7 +25,7 @@ from kalan.amounts import month_key
 from kalan.api.errors import ApiError, error_response, install
 from kalan.config import Config
 from kalan.imports import ImportFileError, Mapping, import_plans, parse_import
-from kalan.models import Direction, FixedCost, InstallmentInfo, ManualInstallment, Statement, Transaction
+from kalan.models import Direction, FixedCost, InstallmentInfo, Locale, ManualInstallment, Statement, Transaction
 from kalan.parsers import ParseError, StatementParser, UnknownFormatError
 from kalan.pdf import extract_text
 from kalan.pipeline import parse_text
@@ -55,7 +55,7 @@ class ProviderSelection(_Body):
 
 
 class SettingsUpdate(_Body):
-    locale: Literal["tr", "en"] | None = None
+    locale: Locale | None = None
     base_currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
     months_ahead: int | None = Field(default=None, ge=1, le=60)
 

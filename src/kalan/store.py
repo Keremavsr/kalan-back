@@ -21,7 +21,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from kalan.amounts import month_key
-from kalan.models import FixedCost, ManualInstallment, Statement, StatementSummary, Transaction
+from kalan.models import FixedCost, Locale, ManualInstallment, Statement, StatementSummary, Transaction
 from kalan.redact import redact_text
 
 _MIGRATIONS_PACKAGE = "kalan.migrations"
@@ -36,7 +36,7 @@ class DuplicateStatementError(Exception):
 
 
 class Settings(BaseModel):
-    locale: Literal["tr", "en"] = "tr"
+    locale: Locale = "tr"
     base_currency: str = Field(default="TRY", pattern=r"^[A-Z]{3}$")
     months_ahead: int = Field(default=12, ge=1, le=60)
 

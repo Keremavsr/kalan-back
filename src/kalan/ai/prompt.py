@@ -42,7 +42,7 @@ Category = Literal[
     "other",
 ]
 CATEGORIES: tuple[str, ...] = get_args(Category)
-LOCALE_NAMES = {"tr": "Turkish", "en": "English"}
+LOCALE_NAMES = {"tr": "Turkish", "en": "English", "pt": "Portuguese", "es": "Spanish", "he": "Hebrew"}
 
 
 class InvalidModelOutputError(ValueError):

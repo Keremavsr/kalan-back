@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Query, Request, Response
 
@@ -14,6 +14,7 @@ from kalan.insights.cancellations import CancelledSubscription, add_cancelled, l
 from kalan.insights.card_fee import find_card_fees, placeholders_kept, refund_letter_prompt
 from kalan.insights.context import current_schedule, rule_overrides
 from kalan.insights.early_payoff import payoff, payoff_overview
+from kalan.insights.export import EXTENSIONS, MEDIA_TYPES, ExportFormat, export
 from kalan.insights.fixed_match import fixed_cost_report, matched_transaction_ids
 from kalan.insights.forecast import DEFAULT_HISTORY, MIN_HISTORY, backtest, next_statement_forecast
 from kalan.insights.minimum import latest_statement, minimum_payment_plan
@@ -227,3 +228,24 @@ def delete_cancelled(request: Request, merchant: Annotated[str, Query(min_length
 def fixed_cost_matches(request: Request) -> dict[str, Any]:
     store = _store(request)
     return fixed_cost_report(store.fixed_costs(), store.all_statements(), store.loose_transactions())
+
+
+# -- 8. export --------------------------------------------------------------------------------------
+
+
+@router.get("/export")
+def export_data(
+    request: Request,
+    format: ExportFormat,
+    what: Literal["transactions", "plans"] = "transactions",
+    currency: Annotated[str | None, Query(pattern=r"^[A-Z]{3}$")] = None,
+) -> Response:
+    store = _store(request)
+    if what == "plans" and format != "csv":
+        raise ApiError(422, "plans_csv_only", "Plans export on their own as CSV; hledger and beancount include them.")
+    sched = current_schedule(store, 60)
+    text, skipped = export(format, store.all_statements(), store.loose_transactions(), sched.plans,
+                           currency or store.get_settings().base_currency, what)
+    name = f"kalan-{what}.{EXTENSIONS[format]}"
+    headers = {"Content-Disposition": f'attachment; filename="{name}"', "X-Kalan-Skipped-Rows": str(skipped)}
+    return Response(text, media_type=MEDIA_TYPES[format], headers=headers)

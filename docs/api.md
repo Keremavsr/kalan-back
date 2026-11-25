@@ -251,3 +251,21 @@ prompt the user copies or sends themselves.
   month, closest date then closest amount. `missing_months` are active months strictly between the first and the
   last month with any data that have no match. Duplicates: overlapping periods, amounts within 7.5 %, days within 2.
   The forecast uses these matches so a fixed cost paid by card is counted once.
+
+### Export (`kalan.insights.export.export`)
+- `GET /insights/export?format=hledger|beancount|ofx|csv&what=transactions|plans&currency=TRY` -> the file as text
+  (`text/plain`, `application/x-ofx` or `text/csv`) with `Content-Disposition: attachment; filename="kalan-<what>.<ext>"`
+  and `X-Kalan-Skipped-Rows` (OFX holds one currency: rows in other currencies are left out and counted).
+  Rows: every stored transaction (statements, manual, imports) except opening balance lines (`carry_over`).
+  - `hledger`: one entry per row (`expenses:<category or kind>` or `assets:payments` against
+    `liabilities:card:<bank>:<last4>`; `manual` / `import` for loose rows), tags `kind`, `source`, `id`,
+    `installment`; plans as periodic transactions (`~ monthly from .. to ..`, for `hledger --forecast`).
+  - `beancount`: `option "operating_currency"`, `open` directives, one entry per row with `kalan-id` / `kind` /
+    `installment` metadata, plans as `custom "kalan-plan"` entries.
+  - `ofx`: OFX 2.2 credit card statement in `currency` (default base currency); charges negative, `FITID` = kalan id,
+    installment `k/n` in `MEMO` when the description does not carry it.
+  - `csv`: `date,description,debit,credit,currency,installment,kind,category,source,account,id` (plain dot decimals);
+    `what=plans` (CSV only, else 422 `plans_csv_only`) gives
+    `plan_id,description,kind,source,amount_each,remaining_count,ends,total_remaining,currency`.
+  CSV and OFX exports import back through `POST /imports` with the same dates, amounts, directions and installment
+  numbers.

@@ -6,7 +6,9 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, Request
 
+from kalan.ai.adapters import DEFAULT_TIMEOUT, Adapter, AdapterError
 from kalan.api.errors import ApiError
+from kalan.insights.card_fee import find_card_fees, placeholders_kept, refund_letter_prompt
 from kalan.insights.context import current_schedule, rule_overrides
 from kalan.insights.minimum import latest_statement, minimum_payment_plan
 from kalan.insights.rules import OVERRIDES_KEY, RuleOverrides, card_rules
@@ -66,3 +68,49 @@ def minimum_payment(
     if cycles is not None:
         result["cycles"] = result["cycles"][:cycles]
     return result
+
+
+# -- 2. card fee refund letter ----------------------------------------------------------------------
+
+
+def _fee_or_404(store: Store, tx_id: str) -> dict[str, Any]:
+    fee = next((f for f in find_card_fees(store.all_statements()) if f["transaction_id"] == tx_id), None)
+    if fee is None:
+        raise ApiError(404, "card_fee_not_found", "No annual card fee line with this id.", {"id": tx_id})
+    return fee
+
+
+def _selected_adapter(request: Request) -> Adapter:
+    store, registry = _store(request), request.app.state.registry
+    provider_id = store.selected_provider()
+    if provider_id is None:
+        raise ApiError(409, "no_provider", "Choose an AI provider first (PUT /providers/selected).")
+    adapter = registry.get(provider_id)
+    detection = registry.detect_all().get(provider_id)
+    if adapter is None or detection is None or not detection.available:
+        raise ApiError(409, "provider_unavailable", "The selected provider is not available on this computer.",
+                       {"id": provider_id})
+    return adapter
+
+
+@router.get("/card-fees")
+def card_fees(request: Request) -> dict[str, Any]:
+    return {"items": find_card_fees(_store(request).all_statements())}
+
+
+@router.get("/card-fees/{tx_id}/prompt")
+def card_fee_prompt(request: Request, tx_id: str) -> dict[str, Any]:
+    return refund_letter_prompt(_fee_or_404(_store(request), tx_id))
+
+
+@router.post("/card-fees/{tx_id}/draft")
+def card_fee_draft(request: Request, tx_id: str) -> dict[str, Any]:
+    built = refund_letter_prompt(_fee_or_404(_store(request), tx_id))
+    adapter = _selected_adapter(request)
+    try:
+        text = adapter.complete(built["prompt"], timeout=DEFAULT_TIMEOUT)
+    except AdapterError as exc:
+        raise ApiError(502, "provider_failed", f"{adapter.name}: {exc}", {"provider": adapter.id}) from None
+    kept = placeholders_kept(text)
+    return {"provider": adapter.id, "text": text, "route": built["route"], "placeholders_kept": kept,
+            "placeholders_missing": [p for p in built["placeholders"] if p not in kept]}

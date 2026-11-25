@@ -169,3 +169,17 @@ prompt the user copies or sends themselves.
   carries contractual interest `unpaid x rate/100 x days/30` for the real days between cut-offs; BSMV and KKDF are
   shares of the interest. `include_installments=true` adds the scheduled installments of each month (`added`).
   409 `no_statements`, 404 `statement_not_found`. Stops after 600 cycles (`paid_off:false`, `balance_left`).
+
+### Card fee refund letter (`kalan.insights.card_fee.find_card_fees`, `refund_letter_prompt`)
+- `GET /insights/card-fees` -> `{"items":[{"transaction_id","statement_id","date","description","amount","currency","bank","product","card_last4","statement_period_end","supplementary_card":false,"refunded":false}]}`
+  newest first: fee rows whose description names an annual card / membership fee (`aidat`, `yıllık kart ücreti`,
+  `üyelik ücreti`), never BSMV/KKDF or interest lines. `refunded` when a credit fee line of the same amount appears on
+  the same card.
+- `GET /insights/card-fees/{transaction_id}/prompt` -> `{"fee",...,"route":"hakem_heyeti|consumer_court","hakem_heyeti":{"year":2026,"limit_below":18600000,"currency":"TRY","source","apply"},
+  "legal_basis":[{"id","title","summary","source","verified"}],"placeholders":["[AD SOYAD]","[TC KİMLİK NO]",...],"prompt":"...","note"}`.
+  The prompt asks the user's AI for a refund request to the bank and a Hakem Heyeti (or consumer court) application,
+  with personal fields left as placeholders. `route` compares the fee with the current Hakem Heyeti limit
+  (`data/tr_consumer_law.json`). 404 `card_fee_not_found`.
+- `POST /insights/card-fees/{transaction_id}/draft` -> `{"provider","text","route","placeholders_kept":[...],"placeholders_missing":[...]}`:
+  sends that prompt to the selected provider and returns its text. Nothing is stored. 409 `no_provider` /
+  `provider_unavailable`, 502 `provider_failed`.

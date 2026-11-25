@@ -37,7 +37,7 @@ from kalan.models import InstallmentInfo, ManualInstallment, Transaction, Transa
 from kalan.parsers.base import StatementParser
 from kalan.parsers.template import KindRule
 from kalan.redact import redact_text
-from kalan.text import fold, normalize_merchant
+from kalan.text import fold, merchant_key, normalize_merchant
 
 ImportFormat = Literal["csv", "ofx", "qif"]
 SignRule = Literal["negative_debit", "positive_debit"]
@@ -248,7 +248,7 @@ class _Rules:
 
 
 def _stem(description: str) -> str:
-    d = fold(normalize_merchant(description))
+    d = fold(merchant_key(description))
     for p in _GENERIC_INDEX:
         d = p.sub(" ", d)
     return re.sub(r"\s+", " ", d).strip(" -/.")

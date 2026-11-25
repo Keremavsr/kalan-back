@@ -1,6 +1,6 @@
 """Base class for statement parsers.
 
-A parser turns the plain text of one statement (``page.get_text()`` of every page, joined with
+A parser turns the plain text of one statement (:func:`kalan.pdf.extract_text`: every page, joined with
 :data:`PAGE_BREAK`) into a :class:`~kalan.models.Statement`. Parsers are pure: no file, network or
 database access, so the same code runs in tests, in the API and in tools.
 """
@@ -36,6 +36,8 @@ class StatementParser(ABC):
     currency: ClassVar[str]
     amount_format: ClassVar[AmountFormat]
     date_format: ClassVar[str] = "DD.MM.YYYY"
+    password_hint: ClassVar[str | None] = None
+    """What the bank uses as the PDF password, e.g. "last 6 digits of your national ID". Never a password."""
 
     @abstractmethod
     def detect(self, text: str) -> bool:

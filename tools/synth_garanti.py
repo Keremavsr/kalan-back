@@ -1,11 +1,14 @@
 """Generate synthetic Garanti BBVA Bonus statements for tests.
 
 Writes 12 PDFs plus one ground-truth JSON per PDF into ``tests/fixtures/garanti/``. The PDFs follow
-the line structure PyMuPDF ``page.get_text()`` yields for real statements: header label, then value on
+the line structure ``kalan.pdf.extract_text()`` yields for real statements: header label, then value on
 the next line; the table ``İşlem Tarihi | Dönem İçi İşlemler | Kalan Borç / Taksit | Bonus (TL) |
 Tutar (TL)`` with rows grouped under section and sector titles, ``bosluk`` filler lines, the bonus cell
 before the amount, credits with a trailing sign; a page header repeated on every continuation page; a
 ``Toplam`` row; the ``EKSTRE ÖZETİ`` sentence with the cut-off dates and the label-first summary.
+As in the real text layer, a row's cells share one baseline, the description cell is padded with real
+space characters that run past the amount column, a sector title starts with a run of spaces and one
+filler line holds spaces only.
 Every merchant, amount, name, address and number is invented; the card ends in ``1111`` and the holder
 is ``ORNEK KISI``.
 
@@ -16,6 +19,7 @@ Usage: ``python tools/synth_garanti.py [output_dir]``. Deterministic output. Nee
 
 from __future__ import annotations
 
+import math
 import random
 import sys
 from dataclasses import dataclass
@@ -28,6 +32,7 @@ import pymupdf
 
 from kalan.amounts import add_months
 from synth_common import (
+    FONT_SIZE,
     LINE,
     WEEKDAYS_TR,
     Layout,
@@ -312,6 +317,21 @@ class GLayout(Layout):
             self.continuation()
 
 
+PAD = 100  # spaces the real text layer prints around some cells
+PAD_REACH = 490  # a padded description cell ends here, past the start of the amount column (470)
+_MEASURE = pymupdf.Font("notos")
+
+
+def padded(x: float, text: str) -> str:
+    """``text`` followed by real space characters up to ``PAD_REACH``, as the real text layer pads its cells.
+
+    The padding runs past the next cells, so they start behind the pen: a reader must still split them into
+    their own lines and must not let the spaces bridge the gap.
+    """
+    room = PAD_REACH - x - _MEASURE.text_length(text, FONT_SIZE)
+    return text + " " * max(1, math.ceil(room / _MEASURE.text_length(" ", FONT_SIZE)))
+
+
 def layout(sim: Sim) -> GLayout:
     lay = GLayout(sim)
     for text in BANK_LINES:
@@ -341,6 +361,7 @@ def layout(sim: Sim) -> GLayout:
     lay.line((40, "Dikkat! Bu hesap özeti test amaçlı sentetik bir belgedir."))
     lay.header()
     lay.line((40, "bosluk"))
+    lay.line((40, " " * PAD))
     lay.line((40, "bosluk"))
 
     section, sector = None, None
@@ -363,17 +384,17 @@ def layout(sim: Sim) -> GLayout:
         if r.sector and r.sector != sector:
             sector = r.sector
             lay.ensure(2)
-            lay.line((40, r.sector))
-        lay.ensure(5)
-        if r.date is not None:
-            lay.line((40, tr_date(r.date, pad=True)))
-        lay.line((100, r.description))
+            lay.line((40, " " * PAD + r.sector))
+        lay.ensure(2)
+        cells = [(40, tr_date(r.date, pad=True))] if r.date is not None else []
+        cells.append((112, padded(112, r.description)))
         if r.cell:
-            lay.line((250, r.cell))
+            cells.append((250, r.cell))
         if r.bonus:
-            lay.line((380, r.bonus))
+            cells.append((380, r.bonus))
         if not r.bonus_only:
-            lay.line((470, r.amount_cell()))
+            cells.append((470, r.amount_cell()))
+        lay.line(*cells)
     lay.ensure(6)
     lay.line((40, "Bonus Card'la ATMlerimizden nakit avans kullanabilirsiniz."))
     lay.line((40, "bosluk"))

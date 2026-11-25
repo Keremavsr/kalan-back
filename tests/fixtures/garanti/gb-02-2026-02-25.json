@@ -1,8 +1,7 @@
 {
   "synthetic": true,
   "scenarios": [
-    "regular month",
-    "table over a page break"
+    "regular month"
   ],
   "statement": {
     "bank": "garanti",
@@ -108,7 +107,7 @@
       "currency": "TRY",
       "direction": "debit",
       "kind": "purchase",
-      "merchant": "ORNEKPAY *ORNEKCARSI",
+      "merchant": "ORNEKPAY ORNEKCARSI",
       "source": "statement",
       "original_amount": null,
       "original_currency": null,

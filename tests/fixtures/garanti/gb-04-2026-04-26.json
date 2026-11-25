@@ -2,8 +2,7 @@
   "synthetic": true,
   "scenarios": [
     "installment start",
-    "foreign currency",
-    "table over a page break"
+    "foreign currency"
   ],
   "statement": {
     "bank": "garanti",
@@ -64,7 +63,7 @@
       "currency": "TRY",
       "direction": "debit",
       "kind": "purchase",
-      "merchant": "ORNEKPAY *ORNEKCARSI",
+      "merchant": "ORNEKPAY ORNEKCARSI",
       "source": "statement",
       "original_amount": null,
       "original_currency": null,
@@ -79,7 +78,7 @@
       "currency": "TRY",
       "direction": "debit",
       "kind": "purchase",
-      "merchant": "ORNEKMARKET-0001-MERKEZ",
+      "merchant": "ORNEKMARKET-MERKEZ",
       "source": "statement",
       "original_amount": null,
       "original_currency": null,
@@ -177,7 +176,7 @@
       "currency": "TRY",
       "direction": "debit",
       "kind": "purchase",
-      "merchant": "ORNEKGAMES.COM 1234567",
+      "merchant": "ORNEKGAMES.COM",
       "source": "statement",
       "original_amount": 1234,
       "original_currency": "USD",

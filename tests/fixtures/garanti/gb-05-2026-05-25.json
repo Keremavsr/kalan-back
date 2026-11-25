@@ -1,8 +1,7 @@
 {
   "synthetic": true,
   "scenarios": [
-    "partial payment",
-    "table over a page break"
+    "partial payment"
   ],
   "statement": {
     "bank": "garanti",
@@ -78,7 +77,7 @@
       "currency": "TRY",
       "direction": "debit",
       "kind": "purchase",
-      "merchant": "ORNEKMARKET-0001-MERKEZ",
+      "merchant": "ORNEKMARKET-MERKEZ",
       "source": "statement",
       "original_amount": null,
       "original_currency": null,

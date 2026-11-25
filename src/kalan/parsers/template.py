@@ -271,6 +271,11 @@ class Template(_T):
     merchant_kinds: list[TransactionKind] = Field(default=["purchase", "installment", "refund"])
     summary: SummarySpec | None = None
     rates: RatesSpec | None = None
+    password_hint: str | None = Field(
+        default=None, max_length=200,
+        description="What the bank uses as the PDF password, e.g. 'last 6 digits of your national ID'. "
+                    "Shown when an encrypted statement needs one. Never the password itself.",
+    )
 
     @field_validator("date_format")
     @classmethod
@@ -348,6 +353,7 @@ class TemplateParser(StatementParser):
         self.currency = template.currency
         self.amount_format = template.amount.format()
         self.date_format = template.date_format
+        self.password_hint = template.password_hint
 
     # ------------------------------------------------------------------------------- compiled
 

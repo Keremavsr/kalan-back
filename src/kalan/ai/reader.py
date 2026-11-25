@@ -29,7 +29,7 @@ from kalan.parsers.base import StatementParser
 from kalan.parsers.template import BUILTIN_DIR, Template, TemplateParser
 from kalan.reconcile import reconcile
 from kalan.redact import redact
-from kalan.text import fold, normalize_merchant
+from kalan.text import fold, merchant_key, normalize_merchant
 
 log = logging.getLogger(__name__)
 
@@ -185,7 +185,7 @@ def to_statement(answer: AIStatement, card_last4: str | None) -> Statement:
             total = inst.count or (inst.index + remaining if inst.index is not None else None)
             if total is not None and inst.index is not None and inst.index > total:
                 total = None
-            stem = fold(normalize_merchant(row.description))
+            stem = fold(merchant_key(row.description))
             if inst.index is not None:
                 anchor = f"start:{add_months(cut_month, -(inst.index - 1))}:of:{total}"
             else:

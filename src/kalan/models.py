@@ -113,6 +113,15 @@ class PrintedSummary(_Model):
     remaining_installments: int | None = None
 
 
+class GateIssue(_Model):
+    """One finding of the save gate (:mod:`kalan.gate`). ``hard`` blocks the save, ``soft`` saves for review."""
+
+    code: str
+    severity: Literal["hard", "soft"]
+    message: str
+    details: dict[str, int | str | list[str] | None] = Field(default_factory=dict)
+
+
 class StatementSummary(_Model):
     id: str
     bank: str
@@ -126,7 +135,11 @@ class StatementSummary(_Model):
     minimum_payment: int
     reconciliation: Reconciliation | None = None
     analysis_status: AnalysisStatus = "none"
-    needs_review: bool = Field(default=False, description="Read by the AI fallback and does not reconcile")
+    needs_review: bool = Field(
+        default=False, description="A soft save-gate check failed (see review), or the AI fallback read it and it "
+                                   "does not reconcile"
+    )
+    review: list[GateIssue] = Field(default_factory=list, description="Soft save-gate findings")
 
 
 class Statement(StatementSummary):

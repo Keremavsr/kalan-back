@@ -64,3 +64,32 @@ def client(config, store, registry) -> TestClient:
 
 def upload(client: TestClient, path: Path):
     return client.post("/statements", files={"file": (path.name, path.read_bytes(), "application/pdf")})
+
+
+class MemoryKeyring:
+    """Stands in for the OS keyring in every test."""
+
+    def __init__(self) -> None:
+        self.data: dict[tuple[str, str], str] = {}
+
+    def get_password(self, service: str, user: str) -> str | None:
+        return self.data.get((service, user))
+
+    def set_password(self, service: str, user: str, password: str) -> None:
+        self.data[(service, user)] = password
+
+    def delete_password(self, service: str, user: str) -> None:
+        del self.data[(service, user)]
+
+
+@pytest.fixture(autouse=True)
+def memory_keyring(monkeypatch) -> MemoryKeyring:
+    ring = MemoryKeyring()
+    monkeypatch.setattr("kalan.pdf_passwords._keyring", lambda: ring)
+    return ring
+
+
+@pytest.fixture
+def rules_off(monkeypatch):
+    """Statements arrive uncategorised, as before rule-based categories: tests of the AI path alone."""
+    monkeypatch.setattr("kalan.categories.apply", lambda transactions, user_rules=(): list(transactions))

@@ -16,7 +16,7 @@ from tests.conftest import VB_PDFS, upload
 
 SUMMARY_KEYS = {"id", "bank", "product", "card_last4", "period_start", "period_end", "due_date", "currency",
                 "statement_total", "minimum_payment", "reconciliation", "analysis_status",
-                "needs_review"}  # v0.2.0
+                "needs_review", "review"}  # v0.2.0 + review (v0.3.0)
 TX_KEYS = {"id", "date", "description", "amount", "currency", "direction", "kind", "installment", "category",
            "merchant", "source"}
 
@@ -264,7 +264,7 @@ def test_summary_empty_month_is_zero_not_404(client):
     assert_error(client.get("/summary/monthly", params={"month": "2020-1"}), 422, "validation_error")
 
 
-def test_summary_of_statement_months(client):
+def test_summary_of_statement_months(rules_off, client):
     a = upload(client, VB_PDFS[10]).json()
     b = upload(client, VB_PDFS[11]).json()
     month = b["period_end"][:7]
@@ -354,7 +354,7 @@ def test_analyze_without_provider(client):
     assert_error(client.post("/statements/st_missing/analyze"), 404, "statement_not_found")
 
 
-def test_job_lifecycle_done(client, fake, analysed_setup):
+def test_job_lifecycle_done(rules_off, client, fake, analysed_setup):
     st = analysed_setup
     assert_error(client.get(f"/statements/{st['id']}/analysis"), 404, "analysis_not_found")
     fake.answers = lambda p: answer_for(p, "groceries", recurring=True)
@@ -433,7 +433,7 @@ def test_interrupted_jobs_fail_on_restart(config, store, registry, client, fake,
     client.app.state.runner.wait(job_id, timeout=10)
 
 
-def test_payload_from_uploaded_pdf_has_no_personal_data(client, fake, analysed_setup):
+def test_payload_from_uploaded_pdf_has_no_personal_data(rules_off, client, fake, analysed_setup):
     fake.answers = answer_for
     assert run_job(client, analysed_setup["id"])["status"] == "done"
     prompt = fake.prompts[0]

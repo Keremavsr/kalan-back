@@ -1,4 +1,9 @@
-# kalan API contract v0.2.0
+# kalan API contract v0.3.0
+
+Changes from v0.2.0: encrypted PDFs (`password` / `remember_password` on `POST /statements`, `/pdf-passwords`);
+save gate (422 `save_blocked`, `review` on statements, see "Save gate"); `POST /diagnose`; rule-based categories and
+cleaner `merchant` names (`/category-rules`, see "Categories"). Every v0.2.0 route and field is unchanged;
+`needs_review` is now also set by soft save-gate findings, not only by the AI fallback.
 
 Changes from v0.1.1: AI fallback reader and `needs_review` on statements, `POST /statements/{id}/template-draft`
 (see "Statements"); CSV/OFX/QIF imports (`source: "import"`); `POST /simulate/installment`; `GET /alerts`;
@@ -18,6 +23,15 @@ Errors: `{"error": {"code": "string_code", "message": "human text", "details": {
 ## Statements
 - `POST /statements?ai_fallback=true|false` multipart `file` (PDF, max 10 MB). Redacts, detects the bank parser or
   template, parses, stores. -> 201 `Statement`. 409 `duplicate` if same bank+card_last4+period already stored.
+  Encrypted PDFs (v0.3.0): optional multipart form fields `password` (max 200 characters) and
+  `remember_password=true|false`. Without `password` kalan tries the passwords remembered in the OS keyring.
+  - 422 `pdf_password_required`: encrypted and no password given (or no remembered one opens it).
+  - 422 `pdf_password_wrong`: the given password does not open it.
+  Both carry `details.hints` = `[{"bank":"garanti","hint":"last 6 digits of your national ID"}]` from the bank
+  templates (the bank is unknown until the PDF opens, so every hint is listed). With `remember_password=true` and a
+  `password` that opened a statement read by a bank parser or template, the password is stored in the OS keyring for
+  that statement's `bank`; the 201 response then has header `X-Kalan-Password-Remembered: true|false` (`false`: no
+  keyring, or the statement was read by the AI fallback). The password never reaches SQLite, a log or a response.
   When no parser or template matches (v0.2.0):
   - `ai_fallback=true` (default) and a provider is selected and available: the redacted page text goes to that
     provider, which transcribes it into strict JSON (header fields, rows, printed totals). Code turns it into a
@@ -33,6 +47,10 @@ Errors: `{"error": {"code": "string_code", "message": "human text", "details": {
   on the same text. `valid:false` with `errors` if the draft still does not validate after one retry. 409
   `no_statement_text` for a statement that was not read by the fallback, 409 `no_provider` / `provider_unavailable`,
   502 `provider_failed`. Synchronous like the fallback.
+- `GET /pdf-passwords` (v0.3.0) -> `{"keyring":true,"items":[{"bank":"garanti","hint":"text"|null,"remembered":false}]}`,
+  one item per known bank; never a password.
+- `PUT /pdf-passwords/{bank}` (v0.3.0) body `{"password":"..."}` -> 204. 404 `unknown_bank`, 503 `keyring_unavailable`.
+- `DELETE /pdf-passwords/{bank}` (v0.3.0) -> 204. 404 `not_remembered`.
 - `GET /statements` -> `{"items":[StatementSummary]}` newest first.
 - `GET /statements/{id}` -> `Statement`
 - `DELETE /statements/{id}` -> 204
@@ -41,21 +59,103 @@ Errors: `{"error": {"code": "string_code", "message": "human text", "details": {
 ```json
 {"id":"st_01","bank":"vakifbank","product":"Worldcard","card_last4":"0000","period_start":"2026-08-26","period_end":"2026-09-25",
  "due_date":"2026-10-05","currency":"TRY","statement_total":0,"minimum_payment":0,
- "reconciliation":{"status":"ok|mismatch","expected":1047844,"computed":1047844,"difference":0},
- "analysis_status":"none|pending|done|failed","needs_review":false}
+ "reconciliation":{"status":"ok|mismatch","expected":123456,"computed":123456,"difference":0},
+ "analysis_status":"none|pending|done|failed","needs_review":false,
+ "review":[{"code":"reconciliation_mismatch","severity":"soft","message":"text","details":{"difference":-1}}]}
 ```
+`review` (v0.3.0) lists the soft save-gate findings; empty for a clean statement.
+
+### Save gate (v0.3.0)
+Before `POST /statements` stores a parsed statement, code checks it. A **hard** finding blocks the save: 422
+`save_blocked` with `details.issues` = `[GateIssue]` (all findings, hard and soft); a duplicate keeps the v0.2.0
+answer, 409 `duplicate` with `details.statement_id`. Only **soft** findings: saved with `needs_review: true` and the
+findings in `review`. `GateIssue` = `{"code","severity":"hard|soft","message","details":{}}`.
+
+| Code | Severity | Meaning, `details` |
+|------|----------|--------------------|
+| `duplicate_statement` | hard | Same bank + card + period (or id) already stored (answered as 409 `duplicate`). `statement_id` |
+| `period_invalid` | hard | Period starts after it ends. `period_start`, `period_end` |
+| `due_before_cut_off` | hard | Due date before the cut-off date. `period_end`, `due_date` |
+| `no_transactions` | hard | No rows read but the total is not zero. |
+| `amount_scale` | hard | A total and its rows differ by a factor of 10, 100 or 1000 (decimal separator read wrong). `checks`, `factor` |
+| `period_unusual` | soft | Period shorter than 20 or longer than 45 days. `days` |
+| `not_reconciled` | soft | No reconciliation was run. |
+| `reconciliation_mismatch` | soft | Rows do not add up to the printed totals. `difference`, `checks` (failed check names) |
+| `no_printed_summary` | soft | No totals block found; only `statement_total` was checked. |
+| `rows_after_cut_off` | soft | Rows dated more than 3 days after the cut-off. `count` |
+| `minimum_above_total` | soft | Minimum payment larger than the statement total. |
+| `installment_counter` | soft | A row's installment number, plan length and remaining count disagree. `transaction_ids` |
+| `installment_sequence` | soft | A plan's installment number does not follow the previous statement's (same card, ended at most 45 days before). `plan_ids`, `previous_statement_id` |
+| `installment_missing` | soft | A plan still running in the previous statement is absent (early payoff, or a row not read). `plan_ids`, `previous_statement_id` |
 `Statement` = `StatementSummary` + `"transactions":[Transaction]` + `"interest_rates":{"purchase_monthly":"3.25", ...}` (strings, as printed)
 + `"parser_id":"tr_vakifbank_worldcard|<template id>|ai-fallback"` and optional parsed extras (`credit_limit`,
 `next_period_end`, `next_due_date`, `printed_summary`, `page_count`).
 `currency` is any ISO 4217 code; minor units follow ISO 4217 (JPY 0 decimals, KWD 3, most currencies 2).
 
+`printed_summary` (the bank's own totals block, signed as debt: positive = owed) or `null`:
+```json
+{"previous_balance":123456,"period_transactions":999999,"interest_and_fees":1234|null,"payments":123456,
+ "statement_total":999999,"remaining_installments":456789|null}
+```
+`interest_and_fees` is `null` when the bank prints no separate fee line and counts interest and fees inside
+`period_transactions` (Yapı Kredi). `remaining_installments` is the printed total of installments still to come
+after this statement, `null` when the bank does not print it.
+
 `Transaction`:
 ```json
-{"id":"tx_01","date":"2026-09-13","description":"Mobil-Taksitli Nakit Avans 1.Taksit Anap","amount":343978,"currency":"TRY",
+{"id":"tx_01","date":"2099-01-15","description":"ORNEK MARKET 1.Taksit","amount":123456,"currency":"TRY",
  "direction":"debit|credit","kind":"purchase|installment|cash_advance|fee|tax|interest|payment|refund|carry_over|other",
- "installment":{"remaining_count":2,"remaining_amount_each":373011,"is_last":false,"plan_id":"pl_01"}|null,
- "category":"groceries|null","merchant":"normalized merchant or null","source":"statement|manual|import"}
+ "installment":{"remaining_count":2,"remaining_amount_each":123456,"is_last":false,"plan_id":"pl_01",
+                "index":1|null,"total_count":3|null,"component":"principal|bsmv|kkdf|interest|early_payoff|null"}|null,
+ "category":"groceries|null","merchant":"normalized merchant or null","source":"statement|manual|import",
+ "original_amount":1234|null,"original_currency":"USD|null","points":"12,34|null","detail":"text|null"}
 ```
+`original_amount` / `original_currency`: the foreign amount of a charge made in another currency. `points`: the
+loyalty points cell as printed. `detail`: sub-lines the bank prints under a row (bill reference, installment note,
+exchange note), joined with ` | `, redacted like the rest of the text; never rows of their own.
+
+## Categories (v0.3.0)
+`merchant` is the cleaned merchant name: payment-processor prefixes (`IYZICO*`, `PAYTR *`, `PAYPAL *` ...), `*`,
+store and terminal numbers, and trailing country codes, cities and districts are removed
+(`IYZICO*ORNEK KAFE 000123 ISTANBUL TR` -> `ORNEK KAFE`). Installment plan ids do not depend on it.
+
+Uploaded statements and imports get a `category` from rules before they are stored: the user's rules first, then
+the transaction kind (`fee`/`interest` -> `fees`, `tax` -> `taxes`, `cash_advance` -> `cash`, `payment` ->
+`transfers`, `carry_over` -> `other`), then the built-in phrases (`src/kalan/categories.yaml`, Turkish merchants
+first). Phrases match whole words of the merchant name after folding (case, diacritics, Turkish I); the longest
+match wins. What no rule covers stays `null`; `POST /statements/{id}/analyze` asks the model only for those and
+never overwrites a category a rule set.
+- `GET /category-rules` -> `{"items":[{"id":"cr_01","pattern":"ORNEK KAFE","category":"dining","created_at":"..."}],
+  "categories":["groceries","dining",...]}` (user rules, oldest first; `categories` is the allowed list).
+- `POST /category-rules` body `{"pattern":"ORNEK KAFE","category":"dining","apply":true}` -> 201
+  `{"rule":{...},"applied":3}`. With `apply` (default) every stored statement and import row the user did not
+  categorise by hand is recategorised by the user rules; `applied` counts changed rows. 409 `duplicate_rule`
+  (`details.rule_id`) for the same pattern after folding, 422 `invalid_pattern` (no letters or digits), 422
+  `validation_error` for a category outside the list.
+- `DELETE /category-rules/{id}` -> 204 (categories it set stay), 404 `not_found`.
+
+## Diagnosis (v0.3.0)
+- `POST /diagnose` multipart `file` (PDF, max 10 MB), optional form field `password` -> 200
+  `{"report":DiagnosisReport,"text":"plain-text report for an issue form"}`. Nothing is stored. Same errors as the
+  upload: 413, 415 `not_pdf`, 422 `pdf_password_required` / `pdf_password_wrong` / `invalid_pdf`.
+
+`DiagnosisReport` holds the statement's structure only. Each line is a shape: digits -> `9`, lower-case letters ->
+`a`, upper-case -> `A`, punctuation and single spaces kept, a run of 3+ spaces -> `<N sp>`. No text or amount survives.
+```json
+{"kalan_version":"0.1.0","page_count":3,"has_text":true,"line_count":132,"lines_per_page":[100,26,6],
+ "number_styles":{"1.234,56":39,"1,234.56":0,"1 234,56":0},
+ "date_styles":{"DD.MM.YYYY":0,"DD/MM/YYYY":0,"YYYY-MM-DD":0,"DD.MM.YY":0,"D Month YYYY":13},
+ "templates":[{"id":"tr_garanti_bonus","detected":true,"anchors":{
+    "detect_all":{"found":5,"total":5,"missing":[]},"detect_none_present":[],
+    "header_fields":{"statement_total":true,"due_date":true},"table_header":{"found":5,"total":5,"missing":[]},
+    "table_end":true,"summary_title":true}}],
+ "shapes":[{"page":1,"shape":"Aaaaa Aaaaaa","repeat":1},{"page":1,"shape":"9.999,99 AA","repeat":2}],
+ "shapes_truncated":false}
+```
+`anchors` (template parsers only) names kalan's own template phrases that were found or missing; `has_text:false`
+means a scanned image without a text layer. At most 600 shapes; consecutive equal shapes are merged with `repeat`.
+The Python entry point is `kalan.diagnose.diagnose(path_or_bytes, password=None) -> dict` (`as_text(report)` for
+the plain-text form). The issue form `.github/ISSUE_TEMPLATE/bank-not-supported.yml` asks for the `text`.
 
 ## Imports (v0.2.0)
 - `POST /imports` multipart `file` (CSV, OFX/QFX or QIF, max 10 MB), optional form fields `format` (`csv|ofx|qif`,

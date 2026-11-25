@@ -6,7 +6,8 @@ layout.
 
 ## Before you start: look at the text, not the PDF
 
-Both paths read the output of PyMuPDF `page.get_text()` for each page, joined with a form feed.
+Both paths read the output of `kalan.pdf.extract_text()`: one line per printed cell (a label and its value
+usually land on two lines), in drawing order, pages joined with a form feed.
 Print it for a statement of your own and study the line structure:
 
 ```python
@@ -38,7 +39,7 @@ schema` prints it; point your editor's YAML plugin at it for completion). The wo
 | --- | --- |
 | `id`, `country`, `bank`, `product`, `currency` | Identity. `currency` is any ISO 4217 code. |
 | `detect.all` / `detect.none` | Phrases that must (or must not) appear. Be strict: two parsers claiming one statement is an error. |
-| `amount` | `preset` (`dot_decimal` 2,345.60, `comma_decimal` 2.345,60, `space_comma` 2 345,60) or `thousands` + `decimal`; `credit_signs` marks credits. |
+| `amount` | `preset` (`dot_decimal` 2,345.60, `comma_decimal` 2.345,60, `space_comma` 2 345,60) or `thousands` + `decimal`; `credit_signs` (default `["+", "-"]`) marks credits. The sign may lead or trail the number: `-1.234,56`, `1.234,56-` and `1.234,56+` are all read. |
 | `date_format` | Tokens `DD D MM M MMM YYYY YY` in any order: `DD.MM.YYYY`, `MM/DD/YYYY`, `YYYY-MM-DD`, `D MMM YYYY`. |
 | `header` | `layout` (`colon_line`: label, `:`, value on three lines; `next_line`; `inline`: `Label: value`) and `fields`: printed labels for `statement_total`, `minimum_payment`, `due_date`, `period_end` (required) and `period_start`, `credit_limit`, `next_period_end`, `next_due_date`, `card` (optional). |
 | `table` | `header` labels, `end` label, lines to skip (page titles, footers), and the row `layout`: `cells` (each cell on its own line, `columns` in order) or `line` (one row per line, `row_pattern` with named groups `date`, `description`, `amount`, optional `installment`, `points`). |
@@ -48,6 +49,7 @@ schema` prints it; point your editor's YAML plugin at it for completion). The wo
 | `kinds` | Ordered rules: `match` (regex on the folded description), optional `credit` and `installment` conditions, then `kind`, optional `direction` and `component` (roles of an installment cash advance: `principal`, `bsmv`, `kkdf`, `interest`, `early_payoff`). First match wins; then unmatched credits get `credit_kind`, the rest `default_kind`. |
 | `summary` | The printed totals block: `title`, `layout` and labels for `previous_balance`, `period_transactions`, `interest_and_fees`, `payments`, `statement_total`. kalan checks the parsed rows against them. |
 | `rates` | Optional interest-rate block. |
+| `password_hint` | Optional. What the bank uses as the PDF password ("last 6 digits of your national ID"), shown when an encrypted statement needs one. Never a password. |
 
 Labels and `match` regexes are compared after `fold()`: lower case, no diacritics, Turkish dotted and
 undotted I unified, spaces collapsed. Write `odemeniz icin tesekkurler`, not `ÖDEMENİZ İÇİN TEŞEKKÜRLER`.
@@ -115,11 +117,42 @@ Rules:
   plan gets the same id in every month's statement.
 - Fill `printed_summary` if the statement prints totals; `kalan.reconcile` checks against them.
 - Raise `ParseError` when the layout is broken. Never return a half-parsed statement silently.
+- Sub-lines printed under a row (bill reference, installment note, exchange note) go into
+  `Transaction.detail` (several joined with ` | `); they never become rows of their own.
+- `PrintedSummary.interest_and_fees` is `None` when the bank prints no separate fee line and counts
+  interest and fees inside `period_transactions`; reconciliation then compares `period_transactions`
+  with the period rows plus interest and fees. Fill
+  `remaining_installments` when the bank prints the total of installments still to come.
+
+### Or build on the template engine
+
+Most layouts that defeat a template still share most of it: detection, number and date formats,
+header labels, kind rules. Then write the YAML for those parts and subclass `TemplateParser` for the
+rest, as `tr_yapikredi_world.py` and `tr_garanti_bonus.py` do:
+
+```python
+from kalan.parsers.template import TemplateParser, _Row
+
+
+class ExampleBankGold(TemplateParser):
+    template_file = "tr_examplebank_gold.yaml"   # in src/kalan/templates/, same id as the module
+
+    def _read_rows(self, text: str, lines: list[str], folded: list[str]) -> list[_Row]:
+        ...  # read the table your way; `text` still has the page breaks (form feeds)
+```
+
+Hooks you can override: `_read_rows` (the table; the default reads `lines` with the template's row
+layout), `header_fields` (label to value), `_summary` (returns `PrintedSummary | None`) and `_rates`.
+Everything else (kinds, installment plans, ids, reconciliation) stays the engine's. A `_Row` carries the
+date, description, amount and printed sign, plus what the row's cells said: `remaining` (count and
+amount each), `cell_index` (`k` of `n`), `is_last`, `points`, `foreign` (amount and currency), `detail`
+and `plan_extra` (printed plan identity added to the plan id).
 
 ## Synthetic fixtures and tests (both paths)
 
-Write a generator in `tools/` that produces PDFs whose `get_text()` output has the same line
-structure as the real statement, with invented merchants, amounts, card number and name, plus a
+Write a generator in `tools/` that produces PDFs whose `kalan.pdf.extract_text()` output has the
+same line structure as the real statement (and the same text layer quirks, such as cells padded with
+spaces), with invented merchants, amounts, card number and name, plus a
 ground-truth JSON per PDF. See `tools/synth_vakifbank.py`. Then add a test that parses every
 fixture and compares every field with the ground truth (see `tests/test_vakifbank.py`).
 

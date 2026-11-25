@@ -1,0 +1,68 @@
+name: Bank not supported
+description: kalan could not read a statement from your bank. Send its anonymous layout report, never the PDF.
+title: "Bank not supported: <bank> <card product>"
+labels: ["bank request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Please do **not** attach the statement, a screenshot of it, or any text copied from it:
+        it holds your name, card number and spending. kalan's diagnosis report contains the layout only:
+        every digit is replaced by `9`, every letter by `a` or `A`, and no amount, name or merchant is kept.
+
+        To get the report, open the statement in kalan and choose "Diagnose" (or send the PDF to the local
+        API: `POST http://127.0.0.1:8765/diagnose`, the `text` field of the answer). Read it once before
+        pasting; if anything in it still looks personal, remove that line.
+  - type: input
+    id: bank
+    attributes:
+      label: Bank and card product
+      description: For example "Example Bank, Gold card". The name of the card, not your card number.
+    validations:
+      required: true
+  - type: input
+    id: country
+    attributes:
+      label: Country
+      placeholder: TR
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Where does the PDF come from?
+      options:
+        - Downloaded from internet or mobile banking
+        - Sent by e-mail by the bank
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: encrypted
+    attributes:
+      label: Does the PDF ask for a password when you open it?
+      options:
+        - "No"
+        - "Yes"
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Diagnosis report
+      description: Paste the whole report kalan printed. It starts with "kalan" and a version number.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: What happened when you uploaded it (error code, wrong totals). No amounts or names, please.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I did not attach the PDF, a screenshot or text copied from the statement.
+          required: true

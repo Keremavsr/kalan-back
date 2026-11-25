@@ -17,24 +17,27 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 import kalan
+from kalan import categories, gate, pdf_passwords
 from kalan.ai import reader
 from kalan.ai.adapters import DEFAULT_TIMEOUT, Adapter, AdapterError, ProviderRegistry
 from kalan.ai.jobs import JobRunner
+from kalan.ai.prompt import CATEGORIES, Category
 from kalan.alerts import compute_alerts
 from kalan.amounts import month_key
 from kalan.api.errors import ApiError, error_response, install
 from kalan.api.insights import router as insights_router
 from kalan.config import Config
+from kalan.diagnose import as_text, diagnose
 from kalan.imports import ImportFileError, Mapping, import_plans, parse_import
 from kalan.insights.cancellations import list_cancelled
 from kalan.models import Direction, FixedCost, InstallmentInfo, Locale, ManualInstallment, Statement, Transaction
-from kalan.parsers import ParseError, StatementParser, UnknownFormatError
-from kalan.pdf import extract_text
+from kalan.parsers import ParseError, StatementParser, UnknownFormatError, all_parsers
+from kalan.pdf import PasswordError, extract_text
 from kalan.pipeline import parse_text
 from kalan.redact import redact
 from kalan.schedule import Schedule, build_schedule
 from kalan.simulate import SimulationIn, simulate
-from kalan.store import DuplicateStatementError, Settings, Store
+from kalan.store import DuplicateRuleError, DuplicateStatementError, Settings, Store
 from kalan.summary import attributed, monthly_summary, subscriptions
 from kalan.text import normalize_merchant
 
@@ -43,6 +46,7 @@ log = logging.getLogger("kalan.api")
 MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
 PDF_MAGIC = b"%PDF-"
 MULTIPART_OVERHEAD = 64 * 1024
+PASSWORD_REMEMBERED_HEADER = "X-Kalan-Password-Remembered"
 
 
 # -- request bodies -------------------------------------------------------------------------------
@@ -70,6 +74,16 @@ class FixedCostIn(_Body):
     start: str = Field(pattern=MONTH_PATTERN)
     end: str | None = Field(default=None, pattern=MONTH_PATTERN)
     category: str | None = Field(default=None, max_length=40)
+
+
+class CategoryRuleIn(_Body):
+    pattern: str = Field(min_length=1, max_length=80, description="Merchant phrase, matched as whole words")
+    category: Category
+    apply: bool = Field(default=True, description="Also recategorise stored rows not categorised by hand")
+
+
+class PdfPasswordIn(_Body):
+    password: str = Field(min_length=1, max_length=200)
 
 
 class InstallmentIn(_Body):
@@ -162,6 +176,7 @@ def create_app(
         "allow_origins": config.cors_origins,
         "allow_methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["*"],
+        "expose_headers": [PASSWORD_REMEMBERED_HEADER],
         "max_age": 600,
     }
     native_pna = "allow_private_network" in inspect.signature(CORSMiddleware.__init__).parameters
@@ -254,9 +269,62 @@ def create_app(
                            {"provider": adapter.id}) from None
         return st, redacted.text
 
+    def bank_ids() -> list[str]:
+        return sorted({p.bank for p in all_parsers()})
+
+    def password_hints() -> list[dict[str, str]]:
+        hints: dict[str, str] = {}
+        for p in all_parsers():
+            if p.password_hint and p.bank not in hints:
+                hints[p.bank] = p.password_hint
+        return [{"bank": b, "hint": h} for b, h in sorted(hints.items())]
+
+    def open_pdf(data: bytes, password: str | None) -> str:
+        """Text of the upload; an encrypted PDF opens with ``password`` or a remembered one."""
+        try:
+            return extract_text(data, password=password)
+        except PasswordError as exc:
+            if exc.wrong:
+                raise ApiError(422, "pdf_password_wrong", "The password does not open this PDF.",
+                               {"hints": password_hints()}) from None
+            found = pdf_passwords.open_with_remembered(data, bank_ids())
+            if found is None:
+                raise ApiError(422, "pdf_password_required", "The PDF is encrypted. Send its password.",
+                               {"hints": password_hints()}) from None
+            log.info("encrypted upload opened with the remembered password of bank %s", found[1])
+            return found[0]
+        except Exception as exc:  # broken PDF
+            log.info("upload rejected: %s", type(exc).__name__)
+            raise ApiError(422, "invalid_pdf", "The PDF could not be opened.") from None
+
+    def user_rules() -> list[categories.Rule]:
+        return [categories.Rule.of(r["pattern"], r["category"]) for r in store.category_rules()]
+
+    def save_gate(st: Statement) -> Statement:
+        """Run :func:`kalan.gate.check`: hard findings block the save, soft ones mark it for review."""
+        issues = gate.check(st, store.all_statements())
+        blocking = gate.hard(issues)
+        found = [i.model_dump(mode="json") for i in issues]
+        log.info("save gate: %s", ",".join(i.code for i in issues) or "clean")
+        dup = next((i for i in blocking if i.code == "duplicate_statement"), None)
+        if dup is not None:  # v0.2.0 contract: 409 duplicate with the stored statement's id
+            raise ApiError(409, "duplicate", "This statement is already stored.",
+                           {"statement_id": dup.details["statement_id"]})
+        if blocking:
+            raise ApiError(422, "save_blocked", "The statement was read but failed the checks before saving.",
+                           {"issues": found})
+        review = gate.soft(issues)
+        if not review:
+            return st
+        return st.model_copy(update={"needs_review": True, "review": review})
+
     @app.post("/statements", status_code=201)
     def post_statement(
-        file: Annotated[UploadFile, File()], ai_fallback: bool = True
+        file: Annotated[UploadFile, File()],
+        response: Response,
+        ai_fallback: bool = True,
+        password: Annotated[str | None, Form(max_length=200)] = None,
+        remember_password: Annotated[bool, Form()] = False,
     ) -> dict[str, Any]:
         data = file.file.read(config.max_upload_bytes + 1)
         if len(data) > config.max_upload_bytes:
@@ -264,11 +332,8 @@ def create_app(
                            {"max_bytes": config.max_upload_bytes})
         if not data.startswith(PDF_MAGIC):
             raise ApiError(415, "not_pdf", "The file is not a PDF.")
-        try:
-            text = extract_text(data)
-        except Exception as exc:  # broken or encrypted PDF
-            log.info("upload rejected: %s", type(exc).__name__)
-            raise ApiError(422, "invalid_pdf", "The PDF could not be opened.") from None
+        password = password or None
+        text = open_pdf(data, password)
         kept_text: str | None = None
         try:
             st = parse_text(text)
@@ -282,6 +347,8 @@ def create_app(
         except Exception as exc:
             log.info("upload rejected: %s", type(exc).__name__)
             raise ApiError(422, "parse_error", "The statement was recognised but could not be read.") from None
+        st = save_gate(st)
+        st = st.model_copy(update={"transactions": categories.apply(st.transactions, user_rules())})
         try:
             saved = store.add_statement(st, redacted_text=kept_text)
         except DuplicateStatementError as dup:
@@ -289,7 +356,109 @@ def create_app(
                            {"statement_id": dup.existing_id}) from None
         log.info("statement %s stored: %d transactions, reconciliation %s", saved.id, len(saved.transactions),
                  saved.reconciliation.status if saved.reconciliation else "none")
+        if remember_password and password is not None:
+            remembered = False
+            if saved.parser_id != reader.PARSER_ID:  # the bank id of a fallback read is the model's guess
+                try:
+                    pdf_passwords.remember(saved.bank, password)
+                    remembered = True
+                except pdf_passwords.KeyringUnavailableError:
+                    log.info("pdf password not remembered: no keyring")
+            response.headers[PASSWORD_REMEMBERED_HEADER] = "true" if remembered else "false"
         return saved.model_dump(mode="json")
+
+    # -- category rules ---------------------------------------------------------------------------
+
+    @app.get("/category-rules")
+    def list_category_rules() -> dict[str, Any]:
+        return {"items": store.category_rules(), "categories": list(CATEGORIES)}
+
+    @app.post("/category-rules", status_code=201)
+    def post_category_rule(body: CategoryRuleIn) -> dict[str, Any]:
+        try:
+            rule = categories.Rule.of(body.pattern, body.category)
+        except ValueError:
+            raise ApiError(422, "invalid_pattern", "The pattern has no letters or digits.") from None
+        try:
+            saved = store.add_category_rule(f"cr_{uuid.uuid4().hex[:12]}", body.pattern.strip(), rule.folded,
+                                            body.category)
+        except DuplicateRuleError as dup:
+            raise ApiError(409, "duplicate_rule", "A rule with this pattern exists.",
+                           {"rule_id": dup.existing_id}) from None
+        applied = 0
+        if body.apply:
+            rules = user_rules()
+
+            def pick(tx: Transaction) -> str | None:
+                found = categories.categorize(tx, rules)
+                return found[0] if found is not None and found[1] == "user_rule" else None
+
+            applied = store.recategorize(pick)
+        log.info("category rule %s added, %d rows recategorised", saved["id"], applied)
+        return {"rule": saved, "applied": applied}
+
+    @app.delete("/category-rules/{rule_id}", status_code=204)
+    def delete_category_rule(rule_id: str) -> Response:
+        if not store.delete_category_rule(rule_id):
+            raise ApiError(404, "not_found", "No such category rule.")
+        return Response(status_code=204)
+
+    # -- anonymous diagnosis ------------------------------------------------------------------------
+
+    @app.post("/diagnose")
+    def post_diagnose(
+        file: Annotated[UploadFile, File()],
+        password: Annotated[str | None, Form(max_length=200)] = None,
+    ) -> dict[str, Any]:
+        """Structure-only report of a statement kalan could not read. Nothing is stored."""
+        data = file.file.read(config.max_upload_bytes + 1)
+        if len(data) > config.max_upload_bytes:
+            raise ApiError(413, "file_too_large", "The file is larger than 10 MB.",
+                           {"max_bytes": config.max_upload_bytes})
+        if not data.startswith(PDF_MAGIC):
+            raise ApiError(415, "not_pdf", "The file is not a PDF.")
+        password = password or None
+        try:
+            report = diagnose(data, password=password)
+        except PasswordError as exc:
+            if exc.wrong:
+                raise ApiError(422, "pdf_password_wrong", "The password does not open this PDF.",
+                               {"hints": password_hints()}) from None
+            found = pdf_passwords.open_with_remembered(data, bank_ids(), read=diagnose)
+            if found is None:
+                raise ApiError(422, "pdf_password_required", "The PDF is encrypted. Send its password.",
+                               {"hints": password_hints()}) from None
+            report = found[0]
+        except Exception as exc:
+            log.info("diagnose rejected: %s", type(exc).__name__)
+            raise ApiError(422, "invalid_pdf", "The PDF could not be opened.") from None
+        log.info("diagnose: %d pages, %d lines", report["page_count"], report["line_count"])
+        return {"report": report, "text": as_text(report)}
+
+    # -- remembered PDF passwords (OS keyring only) -----------------------------------------------
+
+    @app.get("/pdf-passwords")
+    def list_pdf_passwords() -> dict[str, Any]:
+        hints = {h["bank"]: h["hint"] for h in password_hints()}
+        remembered = set(pdf_passwords.remembered_banks(bank_ids()))
+        return {"keyring": pdf_passwords.keyring_available(),
+                "items": [{"bank": b, "hint": hints.get(b), "remembered": b in remembered} for b in bank_ids()]}
+
+    @app.put("/pdf-passwords/{bank}", status_code=204)
+    def put_pdf_password(bank: str, body: PdfPasswordIn) -> Response:
+        if bank not in bank_ids():
+            raise ApiError(404, "unknown_bank", "No parser or template for this bank.", {"known": bank_ids()})
+        try:
+            pdf_passwords.remember(bank, body.password)
+        except pdf_passwords.KeyringUnavailableError:
+            raise ApiError(503, "keyring_unavailable", "No OS keyring is available to keep the password.") from None
+        return Response(status_code=204)
+
+    @app.delete("/pdf-passwords/{bank}", status_code=204)
+    def delete_pdf_password(bank: str) -> Response:
+        if not pdf_passwords.forget(bank):
+            raise ApiError(404, "not_remembered", "No password is remembered for this bank.")
+        return Response(status_code=204)
 
     @app.get("/statements")
     def list_statements() -> dict[str, Any]:
@@ -392,7 +561,8 @@ def create_app(
             raise ApiError(422, "import_unreadable", f"The file could not be imported: {exc}") from None
         import_id = StatementParser.stable_id("im", uuid.uuid4().hex)
         meta = {"currency": result.currency, "detected": result.detected, "months": result.months}
-        imported, skipped = store.add_import(import_id, result.format, meta, result.transactions)
+        rows = categories.apply(result.transactions, user_rules())
+        imported, skipped = store.add_import(import_id, result.format, meta, rows)
         log.info("import %s (%s): %d rows, %d skipped as duplicates", import_id, result.format, imported, skipped)
         stored = {t.id for t in store.import_transactions(import_id)}
         return {

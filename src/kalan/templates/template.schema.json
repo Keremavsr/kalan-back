@@ -673,6 +673,20 @@
         }
       ],
       "default": null
+    },
+    "password_hint": {
+      "anyOf": [
+        {
+          "maxLength": 200,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What the bank uses as the PDF password, e.g. 'last 6 digits of your national ID'. Shown when an encrypted statement needs one. Never the password itself.",
+      "title": "Password Hint"
     }
   },
   "required": [

@@ -1,8 +1,7 @@
 {
   "synthetic": true,
   "scenarios": [
-    "bonus spent row",
-    "table over a page break"
+    "bonus spent row"
   ],
   "statement": {
     "bank": "garanti",
@@ -108,7 +107,7 @@
       "currency": "TRY",
       "direction": "debit",
       "kind": "purchase",
-      "merchant": "ORNEKPAY *ORNEKCARSI",
+      "merchant": "ORNEKPAY ORNEKCARSI",
       "source": "statement",
       "original_amount": null,
       "original_currency": null,

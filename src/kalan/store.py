@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from importlib import resources
@@ -30,6 +30,12 @@ JobStatus = Literal["pending", "done", "failed"]
 
 
 class DuplicateStatementError(Exception):
+    def __init__(self, existing_id: str) -> None:
+        super().__init__(existing_id)
+        self.existing_id = existing_id
+
+
+class DuplicateRuleError(Exception):
     def __init__(self, existing_id: str) -> None:
         super().__init__(existing_id)
         self.existing_id = existing_id
@@ -153,11 +159,12 @@ class Store:
     @staticmethod
     def _insert_tx(con: sqlite3.Connection, tx: Transaction, statement_id: str | None, pos: int) -> None:
         data = tx.model_dump(mode="json", exclude={"category"})
+        source = None if tx.category is None else ("user" if tx.source == "manual" else "rule")
         con.execute(
-            "INSERT INTO transactions (id, statement_id, source, date, position, data, category) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO transactions (id, statement_id, source, date, position, data, category, category_source) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (tx.id, statement_id, tx.source, tx.date.isoformat(), pos, json.dumps(data, ensure_ascii=False),
-             tx.category),
+             tx.category, source),
         )
 
     @staticmethod
@@ -242,9 +249,10 @@ class Store:
                 tx = tx.model_copy(update={"description": redact_text(tx.description), "source": "import"})
                 data = tx.model_dump(mode="json", exclude={"category"})
                 cur = con.execute(
-                    "INSERT OR IGNORE INTO import_transactions (id, import_id, date, position, data) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    (tx.id, import_id, tx.date.isoformat(), pos, json.dumps(data, ensure_ascii=False)),
+                    "INSERT OR IGNORE INTO import_transactions (id, import_id, date, position, data, category, "
+                    "category_source) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (tx.id, import_id, tx.date.isoformat(), pos, json.dumps(data, ensure_ascii=False),
+                     tx.category, None if tx.category is None else "rule"),
                 )
                 if cur.rowcount:
                     imported += 1
@@ -315,6 +323,50 @@ class Store:
             rows = con.execute("SELECT id FROM transactions WHERE model_recurring = 1").fetchall()
             return {r["id"] for r in rows}
 
+    # -- category rules -------------------------------------------------------------------------
+
+    def category_rules(self) -> list[dict[str, str]]:
+        """User rules, oldest first: ``{"id", "pattern", "category", "created_at"}``."""
+        with self._connect() as con:
+            rows = con.execute("SELECT * FROM category_rules ORDER BY created_at, id").fetchall()
+            return [{"id": r["id"], "pattern": r["pattern"], "category": r["category"], "created_at": r["created_at"]}
+                    for r in rows]
+
+    def add_category_rule(self, rule_id: str, pattern: str, folded: str, category: str) -> dict[str, str]:
+        """Raise :class:`DuplicateRuleError` when a rule with the same folded pattern exists."""
+        with self._tx() as con:
+            row = con.execute("SELECT id FROM category_rules WHERE folded = ?", (folded,)).fetchone()
+            if row is not None:
+                raise DuplicateRuleError(row["id"])
+            created = now_iso()
+            con.execute("INSERT INTO category_rules (id, pattern, folded, category, created_at) VALUES (?, ?, ?, ?, ?)",
+                        (rule_id, pattern, folded, category, created))
+        return {"id": rule_id, "pattern": pattern, "category": category, "created_at": created}
+
+    def delete_category_rule(self, rule_id: str) -> bool:
+        with self._tx() as con:
+            return con.execute("DELETE FROM category_rules WHERE id = ?", (rule_id,)).rowcount > 0
+
+    def recategorize(self, pick: Callable[[Transaction], str | None]) -> int:
+        """Set ``pick(tx)`` as the category of every stored row the user did not categorise by hand.
+
+        ``pick`` returns the new category or None to leave the row alone. Returns the number of rows changed.
+        """
+        changed = 0
+        with self._tx() as con:
+            for table in ("transactions", "import_transactions"):
+                rows = con.execute(
+                    f"SELECT id, data, category FROM {table} WHERE category_source IS NULL OR category_source <> 'user'"
+                ).fetchall()
+                for row in rows:
+                    tx = self._tx_from_row(row)
+                    category = pick(tx)
+                    if category is not None and category != row["category"]:
+                        con.execute(f"UPDATE {table} SET category = ?, category_source = 'rule' WHERE id = ?",
+                                    (category, row["id"]))
+                        changed += 1
+        return changed
+
     # -- analysis ---------------------------------------------------------------------------------
 
     def save_analysis(
@@ -329,9 +381,10 @@ class Store:
         with self._tx() as con:
             if con.execute("SELECT 1 FROM statements WHERE id = ?", (statement_id,)).fetchone() is None:
                 return False
-            for tx_id, category in categories.items():
+            for tx_id, category in categories.items():  # only what no rule and no user has categorised
                 con.execute(
-                    "UPDATE transactions SET category = ? WHERE id = ? AND statement_id = ?",
+                    "UPDATE transactions SET category = ?, category_source = 'model' "
+                    "WHERE id = ? AND statement_id = ? AND category IS NULL",
                     (category, tx_id, statement_id),
                 )
             con.execute(

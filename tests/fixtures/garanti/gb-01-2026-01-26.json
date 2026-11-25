@@ -1,8 +1,7 @@
 {
   "synthetic": true,
   "scenarios": [
-    "first statement: no opening balance row, no cut-off sentence",
-    "table over a page break"
+    "first statement: no opening balance row, no cut-off sentence"
   ],
   "statement": {
     "bank": "garanti",
@@ -48,7 +47,7 @@
       "currency": "TRY",
       "direction": "debit",
       "kind": "purchase",
-      "merchant": "ORNEKMARKET-0001-MERKEZ",
+      "merchant": "ORNEKMARKET-MERKEZ",
       "source": "statement",
       "original_amount": null,
       "original_currency": null,

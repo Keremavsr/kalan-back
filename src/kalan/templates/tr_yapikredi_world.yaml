@@ -1,0 +1,56 @@
+# Yapı Kredi World credit card statement (Turkey, TRY).
+# Bound to the Python parser src/kalan/parsers/tr_yapikredi_world.py, which reads the header, the
+# tables, the summary and the rates itself (see the reasons in that module). This file declares what a
+# template can express: detection, number and date formats, header labels and the kind rules. The
+# synthetic fixtures in tests/fixtures/yapikredi reproduce the layout.
+schema_version: 1
+id: tr_yapikredi_world
+country: TR
+bank: yapikredi
+product: World
+currency: TRY
+detect:
+  all: [Yapı ve Kredi Bankası, Worldpuan, HESAP BİLGİLERİ, Kalan Tutar/Taksit, Kalan Toplam Taksit Tutarı]
+amount:
+  preset: comma_decimal
+  credit_signs: ["+", "-"]
+date_format: D MMM YYYY
+
+header:
+  layout: next_line
+  fields:
+    statement_total: [Dönem Borcu]
+    minimum_payment: [Ödenmesi Gereken Asgari Tutar/Oran, Ödenmesi Gereken Asgari Tutar]
+    due_date: [Son Ödeme Tarihi]
+    period_end: [Hesap Kesim Tarihi]
+    credit_limit: [Kart Limiti]
+    next_period_end: [Bir Sonraki Ay Hesap Kesim Tarihi]
+    next_due_date: [Bir Sonraki Ay Son Ödeme Tarihi]
+    card: [Kart Numarası]
+
+table:
+  header: [İşlem Tarihi, İşlemler, Tutar(TL), Kalan Tutar/Taksit, Puan]
+  end: [TOPLAM]
+  layout: cells
+  columns: [date, description, amount, installment, points]
+  points_pattern: '^\d{1,3}(?:\.\d{3})*$'
+
+installment:
+  stem_remove:
+    - '\b(\d{1,2})\s*/\s*(\d{1,2})\b'
+    - '\btaksit\w*\b'
+
+foreign_pattern: null
+
+kinds:
+  - {match: 'onceki donem hesap ozeti borcu', kind: carry_over}
+  - {match: '(?:^|\W)odeme(?:\W|$)', credit: true, kind: payment, direction: credit}
+  - {match: 'nakit avans|nakit cekim', kind: cash_advance}
+  - {match: '^vergi', kind: tax}
+  - {credit: true, kind: refund, direction: credit}
+  - {match: 'faiz', kind: interest}
+  - {match: 'ucret|aidat|komisyon|masraf|bsmv|kkdf', kind: fee}
+  - {installment: true, kind: installment}
+default_kind: purchase
+credit_kind: refund
+merchant_kinds: [purchase, installment, refund]

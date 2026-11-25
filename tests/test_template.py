@@ -26,6 +26,7 @@ from kalan.template_check import check
 HERE = Path(__file__).parent / "fixtures" / "templates"
 TPL = HERE / "br_bancoexemplo_ouro.yaml"
 TXT = HERE / "br_bancoexemplo_ouro.txt"
+BUILTIN_IDS = ["tr_vakifbank_worldcard", "tr_yapikredi_world"]
 VB_PDF = sorted((Path(__file__).parent / "fixtures" / "vakifbank").glob("vb-*.pdf"))[6]
 
 
@@ -56,7 +57,7 @@ def test_schema_file_is_current():
 
 def test_builtin_templates_validate():
     files = sorted(BUILTIN_DIR.glob("*.yaml"))
-    assert [f.stem for f in files] == ["tr_vakifbank_worldcard"]
+    assert [f.stem for f in files] == BUILTIN_IDS
     for f in files:
         assert load_template(f).id == f.stem
 
@@ -122,7 +123,7 @@ def test_user_template_errors_are_skipped(user_dir):
     errors = parsers.template_errors()
     assert len(errors) == 3
     assert any("already used" in e for e in errors) and any("due_date" in e for e in errors)
-    assert [p.id for p in parsers.all_parsers()] == ["tr_vakifbank_worldcard"]
+    assert [p.id for p in parsers.all_parsers()] == BUILTIN_IDS
 
 
 @pytest.mark.parametrize(

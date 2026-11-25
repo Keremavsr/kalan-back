@@ -322,6 +322,9 @@ class _Row:
     cell_index: tuple[int, int] | None = None  # (k, n) printed in the installment column
     points: str | None = None
     extra: list[str] = field(default_factory=list)
+    detail: str | None = None  # sub-line printed under the row
+    plan_extra: str | None = None  # printed plan identity (purchase date, plan total) added to the plan id
+    foreign: tuple[int, str] | None = None  # original amount and currency read from a cell or sub-line
 
 
 class TemplateParser(StatementParser):
@@ -744,6 +747,8 @@ class TemplateParser(StatementParser):
                     anchor = f"start:{add_months(cut_month, -(index - 1))}:of:{total}"
                 else:
                     anchor = f"amount:{row.amount if is_last else each}"
+                if row.plan_extra is not None:
+                    anchor = f"{anchor}:{row.plan_extra}"
                 plan_id = self.stable_id("pl", self.bank, card, plan_kind, stem, anchor)
                 installment = InstallmentInfo(
                     remaining_count=remaining_count,
@@ -762,6 +767,11 @@ class TemplateParser(StatementParser):
             original_amount = try_parse_amount(foreign.group("amount"), self.amount_format) if foreign else None
             if original_amount is None:
                 foreign = None
+            original = (
+                row.foreign if row.foreign is not None
+                else (original_amount.minor, foreign.group("currency").upper()) if foreign and original_amount
+                else None
+            )
             merchant = (
                 normalize_merchant(row.description) if kind in merchant_kinds and component is None else None
             )
@@ -777,9 +787,10 @@ class TemplateParser(StatementParser):
                     installment=installment,
                     merchant=merchant,
                     source="statement",
-                    original_amount=original_amount.minor if foreign and original_amount else None,
-                    original_currency=foreign.group("currency").upper() if foreign else None,
+                    original_amount=original[0] if original else None,
+                    original_currency=original[1] if original else None,
                     points=row.points,
+                    detail=row.detail,
                 )
             )
 

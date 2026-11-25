@@ -18,7 +18,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp_types import ToolAnnotations
 
 import kalan
-from kalan.service import Kalan, ServiceError, check_month
+from kalan.service import Kalan, ServiceError, check_date, check_month
 
 INSTRUCTIONS = """\
 kalan is the user's local credit card statement tracker (installment-first). All tools are read-only.
@@ -95,6 +95,51 @@ def build_server(k: Kalan | None = None) -> MCPServer:
             raise ToolError("limit must be between 1 and 500")
         items = k.transactions(_month(month), query, limit)
         return {"items": items, "count": len(items)}
+
+    @server.tool(annotations=READ_ONLY)
+    def minimum_payment(statement_id: str | None = None, include_installments: bool = False,
+                        cycles: int = 24) -> dict[str, Any]:
+        """What paying only the minimum costs (default: the latest statement): number of statements until paid
+        off, total paid, interest and taxes, extra cost against paying in full, the rates used and their source,
+        assumptions, and the first `cycles` statements (0 for all). include_installments adds the installments
+        already scheduled to each month."""
+        if cycles < 0:
+            raise ToolError("cycles must be 0 or more")
+        result = _call(k.minimum_payment, statement_id, include_installments)
+        total = len(result["cycles"])
+        if cycles:
+            result["cycles"] = result["cycles"][:cycles]
+        return {**result, "cycles_total": total}
+
+    @server.tool(annotations=READ_ONLY)
+    def which_card(date: str | None = None) -> dict[str, Any]:
+        """Which card gives the longest interest-free time for an installment purchase on date (YYYY-MM-DD,
+        default today): every card with its next cut-off, due date moved past weekends and holidays, interest-free
+        days and first installment month, best first."""
+        return _call(k.which_card, _call(check_date, date))
+
+    @server.tool(annotations=READ_ONLY)
+    def next_statement_forecast(include_fixed: bool = True, backtest_months: bool = False) -> dict[str, Any]:
+        """Forecast of the next statement: scheduled installments, subscriptions, median other spending and fixed
+        costs, the open period so far, and the past accuracy (mean error, bias). backtest_months adds every past
+        month's forecast next to what came."""
+        result = k.forecast(include_fixed)
+        if backtest_months:
+            result["backtest"] = k.forecast_backtest(include_fixed)
+        return result
+
+    @server.tool(annotations=READ_ONLY)
+    def early_payoff(plan_id: str | None = None, month: str | None = None) -> dict[str, Any]:
+        """Without plan_id: what is left on every open installment plan if paid off in the first schedule month,
+        and plans already closed early. With plan_id (and optional month YYYY-MM): the remaining total, the
+        principal if the bank dropped future interest, and the month-by-month effect. kalan knows no bank's
+        payoff discount."""
+        return _call(k.early_payoff, plan_id, _month(month))
+
+    @server.tool(annotations=READ_ONLY)
+    def card_fees() -> dict[str, Any]:
+        """Annual card fee (aidat) lines on the statements, newest first, and whether a refund was seen."""
+        return {"items": k.card_fees()}
 
     return server
 

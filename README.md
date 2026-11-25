@@ -62,8 +62,19 @@ kalan abonelikler                  # recurring charges                    (subsc
 kalan uyarilar                     # alerts                               (alerts)
 kalan simule 9.999,99 6            # what if I buy this in 6 installments (simulate)
 kalan analiz st_0123456789ab       # AI commentary on one statement       (analyze)
+kalan asgari                       # what paying only the minimum costs   (minimum)
+kalan aidat [--prompt TX_ID]       # annual card fees, refund-letter prompt (fees)
+kalan hangikart [--date D]         # which card gives the longest interest-free time (which-card)
+kalan paylas [--svg kart.svg]      # shareable load card, amounts off unless --amounts (share)
+kalan tahmin [--backtest]          # next statement forecast              (forecast)
+kalan erkenkapama [PLAN_ID]        # early payoff                         (payoff)
+kalan sabitler                     # fixed costs matched to card rows     (fixed)
+kalan disari --format csv --out x  # export: hledger, beancount, ofx, csv (export)
 kalan banks                        # ids for --bank
 ```
+
+The terminal speaks Turkish when the system language is Turkish and English otherwise; `--lang tr|en` or
+`KALAN_LANG` overrides it. Turkish output writes money as `1.234,56 TL`. `--json` is never translated.
 
 `--data-dir PATH` (or `KALAN_DATA_DIR`) points every command at another database. The commands read and
 write the same database as `kalan serve`, so the app shows what you imported from the terminal.
@@ -72,7 +83,8 @@ write the same database as `kalan serve`, so the app shows what you imported fro
 
 `kalan mcp` is a local MCP server on stdio. Your own AI CLI starts it and can then answer questions like
 "where did I spend most this month?" from your data. It only reads: list statements, one statement,
-installment schedule, monthly summary, alerts, subscriptions and transaction search. It cannot import,
+installment schedule, monthly summary, alerts, subscriptions, transaction search, minimum payment
+plan, which card today, next statement forecast, early payoff and annual card fees. It cannot import,
 delete, change settings or call another AI. What it returns goes to the model your CLI uses, so a cloud
 model sees those rows (redacted descriptions, amounts, dates; never card numbers or names).
 

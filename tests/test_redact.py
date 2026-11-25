@@ -128,3 +128,24 @@ def test_amounts_dates_and_cells_untouched(line):
 
 def test_page_breaks_kept():
     assert redact_text("a\fb") == "a\fb"
+
+
+def test_address_stops_at_header_label_and_month_name_date():
+    r = redact("Sayın ORNEK KISI\nORNEK MAH. 1\nSon Ödeme Tarihi: 9 Mart 2027\nHESAP BİLGİLERİ\n")
+    assert r.text == "Sayın [NAME]\n[ADDRESS]\nSon Ödeme Tarihi: 9 Mart 2027\nHESAP BİLGİLERİ\n"
+    r = redact("Sayın ORNEK KISI\nORNEK MAH. 1\n12 Mart 2026\n")
+    assert r.text == "Sayın [NAME]\n[ADDRESS]\n12 Mart 2026\n"
+
+
+def test_label_then_colon_value_line_and_label_then_value_line():
+    r = redact("Müşteri Numarası\n: 12345678\nMüşteri Limiti\n: 1.000,00 TL\n")
+    assert r.text == "Müşteri Numarası\n: [REDACTED]\nMüşteri Limiti\n: 1.000,00 TL\n"
+    r = redact("Müşteri Numarası\n87654321\nMüşteri Limiti\n1.000,00 TL\n")
+    assert r.text == "Müşteri Numarası\n[REDACTED]\nMüşteri Limiti\n1.000,00 TL\n"
+    assert r.counts["labelled"] == 1
+
+
+def test_bill_references():
+    r = redact("ABNO 4455667           FTNO 2026A-99\n")
+    assert r.text == "ABNO [NUMBER]           FTNO [NUMBER]\n"
+    assert r.counts["bill_reference"] == 2

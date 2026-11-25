@@ -12,6 +12,11 @@ by kind (checked against real VakıfBank statements):
 Finally ``previous + period + interest/fees - payments`` must equal ``Dönem Borcunuz``. The headline
 numbers (``expected``/``computed``/``difference``) are those of the period check, as in ``docs/api.md``.
 A mismatch is reported, never raised.
+
+Banks that print no separate fee line (``interest_and_fees`` is ``None``, Yapı Kredi) count interest and
+fees inside the period total, so the period check compares the period and fee buckets together. When the
+bank prints the installments still to come (``remaining_installments``), the remaining count times the
+amount each of every installment row must add up to it.
 """
 
 from __future__ import annotations
@@ -37,6 +42,15 @@ def buckets(statement: Statement) -> dict[str, int]:
     return out
 
 
+def remaining_installments(statement: Statement) -> int:
+    """Installments still to come after this statement, from the statement's own installment rows."""
+    return sum(
+        t.installment.remaining_count * t.installment.remaining_amount_each
+        for t in statement.transactions
+        if t.source == "statement" and t.installment is not None
+    )
+
+
 def _check(name: str, expected: int, computed: int) -> ReconciliationCheck:
     diff = computed - expected
     return ReconciliationCheck(
@@ -50,12 +64,17 @@ def reconcile(statement: Statement) -> Reconciliation:
     checks: list[ReconciliationCheck] = []
     p = statement.printed_summary
     if p is not None:
-        checks.append(_check("period_transactions", p.period_transactions, b["period"]))
-        checks.append(_check("interest_and_fees", p.interest_and_fees, b["interest_and_fees"]))
+        if p.interest_and_fees is None:
+            checks.append(_check("period_transactions", p.period_transactions, b["period"] + b["interest_and_fees"]))
+        else:
+            checks.append(_check("period_transactions", p.period_transactions, b["period"]))
+            checks.append(_check("interest_and_fees", p.interest_and_fees, b["interest_and_fees"]))
         checks.append(_check("payments", p.payments, b["payments"]))
         checks.append(_check("previous_balance", p.previous_balance, b["carry_over"]))
-        printed_balance = p.previous_balance + p.period_transactions + p.interest_and_fees - p.payments
+        printed_balance = p.previous_balance + p.period_transactions + (p.interest_and_fees or 0) - p.payments
         checks.append(_check("printed_summary_arithmetic", p.statement_total, printed_balance))
+        if p.remaining_installments is not None:
+            checks.append(_check("remaining_installments", p.remaining_installments, remaining_installments(statement)))
     checks.append(_check("statement_total", statement.statement_total, balance))
     head = checks[0]
     status = "ok" if all(c.status == "ok" for c in checks) else "mismatch"

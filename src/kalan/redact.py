@@ -3,15 +3,18 @@
 Rules, applied in this order:
 
 1. ``name_address``: the block that starts with ``Sayın`` (name, then address lines) up to the next
-   bank line, the table header or a date line.
-2. ``labelled``: values printed after personal labels such as ``Müşteri No`` or ``Şube Adı``.
+   bank line, the table header, a header label such as ``Son Ödeme Tarihi`` or a date line.
+2. ``labelled``: values printed after personal labels such as ``Müşteri No`` or ``Şube Adı``: on the
+   same line (``Label: value``), as ``Label`` / ``:`` / ``value``, as ``Label`` / ``: value``, or as a
+   label alone on its line with the value (containing a digit) on the next line.
 3. ``card``: card numbers, masked (``4799********1234``) or full (Luhn-valid). Replaced by
    ``[CARD ****1234]`` so that parsers can still keep the last four digits, and nothing else.
 4. ``iban``: ``TR`` + 24 digits, and other IBANs that pass the mod-97 check.
 5. ``email``.
 6. ``national_id``: Turkish T.C. kimlik numbers (11 digits with valid check digits).
 7. ``phone``: Turkish landline/mobile/0850 numbers and ``+<country>`` international numbers.
-8. ``long_number``: any other run of 10 or more digits (customer, contract, barcode numbers).
+8. ``bill_reference``: the subscriber and invoice numbers after ``ABNO`` and ``FTNO`` on bill payments.
+9. ``long_number``: any other run of 10 or more digits (customer, contract, barcode numbers).
 
 Amounts and dates are never touched: they always contain a separator that the number rules exclude.
 """
@@ -27,8 +30,20 @@ from kalan.text import fold
 CARD_TOKEN = "[CARD ****{last4}]"
 _MASK = "*Xx•"
 
-_NAME_STOP_WORDS = ("vakifbank", "worldcard", "islem tarihi", "kredi karti", "hesap ozeti", "bank", "banka")
-_DATE_LINE = re.compile(r"^\d{2}[./]\d{2}[./]\d{4}$")
+_NAME_STOP_WORDS = (
+    "vakifbank",
+    "worldcard",
+    "islem tarihi",
+    "kredi karti",
+    "hesap ozeti",
+    "bank",
+    "banka",
+    "hesap bilgileri",
+    "son odeme tarihi",
+    "hesap kesim tarihi",
+    "ekstre no",
+)
+_DATE_LINE = re.compile(r"^(?:\d{2}[./]\d{2}[./]\d{4}|\d{1,2} [a-z]{3,9} \d{4})$")
 _PERSONAL_LABELS = (
     "musteri no",
     "musteri numarasi",
@@ -63,6 +78,7 @@ _PHONE_TR = re.compile(
     r"[ -]?\d{3}[ -]?\d{1,2}[ -]?\d{2,3}(?![\d]|[.,]\d)"
 )
 _PHONE_INTL = re.compile(r"(?<![\w+])\+\d{1,3}(?:[ -]?\(?\d{1,4}\)?){2,5}(?![\d]|[.,]\d)")
+_BILL_REFERENCE = re.compile(r"\b(ABNO|FTNO)([ :]+)(?!\[)\S+")
 _LONG_NUMBER = re.compile(r"(?<![\d.,])\d{10,}(?![\d]|[.,]\d)")
 
 
@@ -172,6 +188,17 @@ class _Redactor:
                 self.counts["labelled"] += 1
                 i += 3
                 continue
+            nxt_line = lines[i + 1].strip() if i + 1 < len(lines) else ""
+            if nxt_line.startswith(":") and nxt_line[1:].strip() and _is_personal_label(f):
+                out.extend([line, ": [REDACTED]"])
+                self.counts["labelled"] += 1
+                i += 2
+                continue
+            if f in _PERSONAL_LABELS and re.search(r"\d", nxt_line):
+                out.extend([line, "[REDACTED]"])
+                self.counts["labelled"] += 1
+                i += 2
+                continue
             head, sep, tail = line.partition(":")
             if sep and tail.strip() and _is_personal_label(fold(head)):
                 out.append(head + ": [REDACTED]")
@@ -203,6 +230,7 @@ def redact(text: str) -> RedactionResult:
         page = r.sub(
             "phone", _PHONE_INTL, page, "[PHONE]", check=lambda m: 8 <= len(re.sub(r"\D", "", m.group(0))) <= 15
         )
+        page = r.sub("bill_reference", _BILL_REFERENCE, page, lambda m: f"{m.group(1)} [NUMBER]")
         page = r.sub("long_number", _LONG_NUMBER, page, "[NUMBER]")
         pages.append(page)
     return RedactionResult(text="\f".join(pages), counts=r.counts, card_last4=r.card_last4)

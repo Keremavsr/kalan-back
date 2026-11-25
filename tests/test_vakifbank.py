@@ -72,6 +72,7 @@ def test_scenarios_covered():
 def test_statement_fields(i):
     st, truth = parsed()[i]
     got = st.model_dump(mode="json")
+    assert got["printed_summary"].pop("remaining_installments") is None  # VakıfBank does not print it
     for f in STATEMENT_FIELDS:
         assert got[f] == truth["statement"][f], f
     assert st.id.startswith("st_")

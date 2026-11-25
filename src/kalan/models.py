@@ -70,6 +70,10 @@ class Transaction(_Model):
     original_amount: int | None = Field(default=None, description="Foreign currency amount, minor units")
     original_currency: str | None = None
     points: str | None = Field(default=None, description="Loyalty points cell, as printed")
+    detail: str | None = Field(
+        default=None,
+        description="Sub-line printed under the row (bill reference, installment note, exchange note), redacted",
+    )
 
     @property
     def signed_amount(self) -> int:
@@ -94,13 +98,19 @@ class ReconciliationCheck(_Model):
 
 
 class PrintedSummary(_Model):
-    """The ``HESAP ÖZETİ`` block as printed by the bank (minor units, signed as debt)."""
+    """The printed summary block (``HESAP ÖZETİ``), minor units, signed as debt.
+
+    ``interest_and_fees`` is ``None`` when the bank prints no separate fee line and counts interest and
+    fees inside ``period_transactions`` (Yapı Kredi). ``remaining_installments`` is the printed total of
+    installments still to come after this statement, when the bank prints it.
+    """
 
     previous_balance: int
     period_transactions: int
-    interest_and_fees: int
+    interest_and_fees: int | None
     payments: int
     statement_total: int
+    remaining_installments: int | None = None
 
 
 class StatementSummary(_Model):

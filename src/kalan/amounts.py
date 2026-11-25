@@ -2,7 +2,8 @@
 
 Parsers never guess the number format: each one declares an :class:`AmountFormat`. VakıfBank prints
 ``2,345.60`` (comma thousands, dot decimal) and marks credits with a leading ``+``; many other Turkish
-banks and Brazilian banks print ``2.345,60``.
+banks and Brazilian banks print ``2.345,60``. A sign may also trail the number (Garanti BBVA prints
+credits as ``1.234,56+``).
 """
 
 from __future__ import annotations
@@ -40,7 +41,7 @@ class AmountFormat:
         th = f"[{_SPACES}]" if self.thousands == " " else re.escape(self.thousands)
         whole = rf"(?:\d{{1,3}}(?:{th}\d{{3}})+|\d+)" if self.thousands else r"\d+"
         frac = rf"(?:{dec}\d{{{self.decimals}}})?" if self.decimals else ""
-        pattern = rf"^(?P<sign>[+-])?(?P<whole>{whole})(?P<frac>{frac})(?P<tsign>-)?$"
+        pattern = rf"^(?P<sign>[+-])?(?P<whole>{whole})(?P<frac>{frac})(?P<tsign>[+-])?$"
         object.__setattr__(self, "_regex", re.compile(pattern))
 
     @property
@@ -102,7 +103,7 @@ def parse_amount(text: str, fmt: AmountFormat) -> ParsedAmount:
     frac = m.group("frac")[1:] if m.group("frac") else ""
     frac = frac.ljust(fmt.decimals, "0")
     minor = int(whole) * 10**fmt.decimals + (int(frac) if frac else 0)
-    sign = m.group("sign") or ("-" if m.group("tsign") else None)
+    sign = m.group("sign") or m.group("tsign")
     return ParsedAmount(minor=minor, sign=sign, currency=currency)
 
 

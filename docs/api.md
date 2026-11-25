@@ -1,7 +1,7 @@
 # kalan API contract v0.2.0
 
 Changes from v0.1.1: AI fallback reader and `needs_review` on statements, `POST /statements/{id}/template-draft`
-(see "Statements"); CSV/OFX/QIF imports (`source: "import"`). Every v0.1.1 route and field is unchanged.
+(see "Statements"); CSV/OFX/QIF imports (`source: "import"`); `POST /simulate/installment`. Every v0.1.1 route and field is unchanged.
 
 Back end: `kalan-back` (Python, FastAPI). Listens on `127.0.0.1:8765` only. JSON, UTF-8.
 Front end: `kalan-front` (separate repo) talks to it only over HTTP. Base URL configurable (`VITE_KALAN_API`, default `http://127.0.0.1:8765`).
@@ -94,6 +94,14 @@ Each plan also has `"source":"statement|manual|import"`. Every schedule item and
 `total_remaining`).
 - `GET /summary/monthly?month=2026-09` -> always 200 (a month with no data returns zeros, empty `by_category` and empty `statement_ids`, never 404) `{"month","currency","total_spend","total_credit","by_category":[{"category","amount","share":"0.18"}],"previous_month":{"total_spend","change":"0.12"}|null,"statement_ids":[...]}`
 - `GET /subscriptions` -> `{"items":[{"merchant","amount_last","amount_previous","currency","months_seen":["2026-08","2026-09"],"price_change":"0.20"|null}]}` (recurring = same normalized merchant in >= 2 consecutive months with amounts within 25% or flagged by the model).
+
+- `POST /simulate/installment` (v0.2.0) body `{"amount":120000,"count":6,"start_month":"2026-12","interest_monthly":"3.11"|null,"months":null}`
+  -> `{"currency","purchase":{"amount","count","start_month","interest_monthly","installments":[{"month","amount","principal","interest"}],
+  "total_cost","interest_total","ends"},"months":[{"month","without","purchase","with"}],"peak":{"without":{"month","total"},"with":{"month","total"}}}`.
+  `without` is the current schedule (`GET /installments/schedule`), `with` adds the purchase. No interest: equal
+  installments, the division remainder in the first. With `interest_monthly` (percent per month): equal annuity
+  payments, interest on the open balance, the last installment closes it exactly. A peak tie goes to the earlier month.
+  Nothing is stored.
 
 ## Model analysis (one call per statement)
 - `POST /statements/{id}/analyze` -> 202 `{"job_id":"job_01","status":"pending"}`

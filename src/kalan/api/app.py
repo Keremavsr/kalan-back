@@ -29,7 +29,8 @@ from kalan.parsers import ParseError, StatementParser, UnknownFormatError
 from kalan.pdf import extract_text
 from kalan.pipeline import parse_text
 from kalan.redact import redact
-from kalan.schedule import build_schedule
+from kalan.schedule import Schedule, build_schedule
+from kalan.simulate import SimulationIn, simulate
 from kalan.store import DuplicateStatementError, Settings, Store
 from kalan.summary import attributed, monthly_summary, subscriptions
 from kalan.text import normalize_merchant
@@ -402,6 +403,13 @@ def create_app(
 
     @app.get("/installments/schedule")
     def schedule(months: Annotated[int | None, Query(ge=1, le=60)] = None) -> dict[str, Any]:
+        return current_schedule(months).model_dump(mode="json")
+
+    @app.post("/simulate/installment")
+    def simulate_installment(body: SimulationIn) -> dict[str, Any]:
+        return simulate(body, current_schedule(None))
+
+    def current_schedule(months: int | None) -> Schedule:
         statements = store.all_statements()
         cut_off_day = max(statements, key=lambda s: s.period_end).period_end.day if statements else None
         imported = import_plans(store.import_transactions())
@@ -414,7 +422,7 @@ def create_app(
         )
         if not statements and not store.manual_plans() and not imported:
             result.currency = store.get_settings().base_currency
-        return result.model_dump(mode="json")
+        return result
 
     @app.get("/summary/monthly")
     def summary(month: Annotated[str | None, Query(pattern=MONTH_PATTERN)] = None) -> dict[str, Any]:

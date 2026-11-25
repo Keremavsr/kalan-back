@@ -11,9 +11,9 @@ import uuid
 from datetime import date
 from typing import Annotated, Any, Literal
 
-from fastapi import FastAPI, File, Query, Response, UploadFile
+from fastapi import FastAPI, File, Form, Query, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 import kalan
@@ -23,6 +23,7 @@ from kalan.ai.jobs import JobRunner
 from kalan.amounts import month_key
 from kalan.api.errors import ApiError, error_response, install
 from kalan.config import Config
+from kalan.imports import ImportFileError, Mapping, import_plans, parse_import
 from kalan.models import Direction, InstallmentInfo, ManualInstallment, Statement, Transaction
 from kalan.parsers import ParseError, StatementParser, UnknownFormatError
 from kalan.pdf import extract_text
@@ -334,9 +335,9 @@ def create_app(
     @app.get("/transactions")
     def list_transactions(
         month: Annotated[str | None, Query(pattern=MONTH_PATTERN)] = None,
-        source: Literal["manual", "statement"] | None = None,
+        source: Literal["manual", "statement", "import"] | None = None,
     ) -> dict[str, Any]:
-        rows = attributed(store.all_statements(), store.manual_transactions())
+        rows = attributed(store.all_statements(), store.loose_transactions())
         items = [tx for m, tx in rows if (month is None or m == month) and (source is None or tx.source == source)]
         items.sort(key=lambda t: t.date)  # stable: printed order within a day
         return {"items": [tx.model_dump(mode="json") for tx in items]}
@@ -352,19 +353,66 @@ def create_app(
         log.info("manual transaction %s deleted", tx_id)
         return Response(status_code=204)
 
+    # -- imports ----------------------------------------------------------------------------------
+
+    @app.post("/imports", status_code=201)
+    def post_import(
+        file: Annotated[UploadFile, File()],
+        mapping: Annotated[str | None, Form()] = None,
+        format: Annotated[Literal["csv", "ofx", "qif"] | None, Form()] = None,
+    ) -> dict[str, Any]:
+        data = file.file.read(config.max_upload_bytes + 1)
+        if len(data) > config.max_upload_bytes:
+            raise ApiError(413, "file_too_large", "The file is larger than 10 MB.",
+                           {"max_bytes": config.max_upload_bytes})
+        try:
+            parsed_mapping = Mapping.model_validate_json(mapping) if mapping else Mapping()
+        except ValidationError as exc:
+            raise ApiError(422, "invalid_mapping", "The mapping is not valid.",
+                           {"errors": [f"{'.'.join(str(x) for x in e['loc'])}: {e['msg']}" for e in exc.errors()][:5]}
+                           ) from None
+        try:
+            result = parse_import(data, file.filename, parsed_mapping, store.get_settings().base_currency, format)
+        except ImportFileError as exc:
+            raise ApiError(422, "import_unreadable", f"The file could not be imported: {exc}") from None
+        import_id = StatementParser.stable_id("im", uuid.uuid4().hex)
+        meta = {"currency": result.currency, "detected": result.detected, "months": result.months}
+        imported, skipped = store.add_import(import_id, result.format, meta, result.transactions)
+        log.info("import %s (%s): %d rows, %d skipped as duplicates", import_id, result.format, imported, skipped)
+        stored = {t.id for t in store.import_transactions(import_id)}
+        return {
+            "id": import_id, "format": result.format, "currency": result.currency, "rows": len(result.transactions),
+            "imported": imported, "skipped_duplicates": skipped, "months": result.months,
+            "detected": result.detected,
+            "transactions": [t.model_dump(mode="json") for t in store.import_transactions(import_id)
+                             if t.id in stored],
+        }
+
+    @app.get("/imports")
+    def list_imports() -> dict[str, Any]:
+        return {"items": store.list_imports()}
+
+    @app.delete("/imports/{import_id}", status_code=204)
+    def delete_import(import_id: str) -> Response:
+        if not store.delete_import(import_id):
+            raise ApiError(404, "import_not_found", "No import with this id.", {"id": import_id})
+        return Response(status_code=204)
+
     # -- calculations -----------------------------------------------------------------------------
 
     @app.get("/installments/schedule")
     def schedule(months: Annotated[int | None, Query(ge=1, le=60)] = None) -> dict[str, Any]:
         statements = store.all_statements()
         cut_off_day = max(statements, key=lambda s: s.period_end).period_end.day if statements else None
+        imported = import_plans(store.import_transactions())
         result = build_schedule(
             statements,
             store.manual_plans(),
             months=months or store.get_settings().months_ahead,
             cut_off_day=cut_off_day,
+            imported=imported,
         )
-        if not statements and not store.manual_plans():
+        if not statements and not store.manual_plans() and not imported:
             result.currency = store.get_settings().base_currency
         return result.model_dump(mode="json")
 
@@ -372,14 +420,14 @@ def create_app(
     def summary(month: Annotated[str | None, Query(pattern=MONTH_PATTERN)] = None) -> dict[str, Any]:
         return monthly_summary(
             store.all_statements(),
-            store.manual_transactions(),
+            store.loose_transactions(),
             month or month_key(date.today()),
             store.get_settings().base_currency,
         )
 
     @app.get("/subscriptions")
     def get_subscriptions() -> dict[str, Any]:
-        items = subscriptions(store.all_statements(), store.manual_transactions(), store.model_recurring_ids())
+        items = subscriptions(store.all_statements(), store.loose_transactions(), store.model_recurring_ids())
         return {"items": items}
 
     # -- model analysis ---------------------------------------------------------------------------

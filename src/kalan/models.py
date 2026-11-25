@@ -25,7 +25,7 @@ TransactionKind = Literal[
     "carry_over",
     "other",
 ]
-Source = Literal["statement", "manual"]
+Source = Literal["statement", "manual", "import"]
 ReconciliationStatus = Literal["ok", "mismatch"]
 AnalysisStatus = Literal["none", "pending", "done", "failed"]
 ComponentRole = Literal["principal", "bsmv", "kkdf", "interest", "early_payoff"]

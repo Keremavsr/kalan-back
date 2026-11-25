@@ -1,7 +1,7 @@
 # kalan API contract v0.2.0
 
 Changes from v0.1.1: AI fallback reader and `needs_review` on statements, `POST /statements/{id}/template-draft`
-(see "Statements"). Every v0.1.1 route and field is unchanged.
+(see "Statements"); CSV/OFX/QIF imports (`source: "import"`). Every v0.1.1 route and field is unchanged.
 
 Back end: `kalan-back` (Python, FastAPI). Listens on `127.0.0.1:8765` only. JSON, UTF-8.
 Front end: `kalan-front` (separate repo) talks to it only over HTTP. Base URL configurable (`VITE_KALAN_API`, default `http://127.0.0.1:8765`).
@@ -53,8 +53,30 @@ Errors: `{"error": {"code": "string_code", "message": "human text", "details": {
 {"id":"tx_01","date":"2026-09-13","description":"Mobil-Taksitli Nakit Avans 1.Taksit Anap","amount":343978,"currency":"TRY",
  "direction":"debit|credit","kind":"purchase|installment|cash_advance|fee|tax|interest|payment|refund|carry_over|other",
  "installment":{"remaining_count":2,"remaining_amount_each":373011,"is_last":false,"plan_id":"pl_01"}|null,
- "category":"groceries|null","merchant":"normalized merchant or null","source":"statement|manual"}
+ "category":"groceries|null","merchant":"normalized merchant or null","source":"statement|manual|import"}
 ```
+
+## Imports (v0.2.0)
+- `POST /imports` multipart `file` (CSV, OFX/QFX or QIF, max 10 MB), optional form fields `format` (`csv|ofx|qif`,
+  default: sniffed from name and content) and `mapping` (JSON string, every key optional):
+  `{"date","description","amount","debit","credit","installment","currency_column"` (column names, matched ignoring
+  case and accents), `"currency":"BRL","delimiter":";","decimal":",","date_format":"DD/MM/YYYY","sign":"negative_debit|positive_debit","template":"<template id>"}`.
+  Everything not given is detected: delimiter, header row and columns (names in en/pt/es/tr/he), number format, date
+  order (day-first wins when every day is <= 12; `date_ambiguous: true` then), and which sign is a charge (the
+  majority sign of the amount column). OFX/QIF: a negative amount is a charge. Installment hints come from the
+  installment column or the description (`3/10`, `parcela 3 de 10`, `cuota 3 de 6`); `template` applies that
+  template's kind and installment rules instead of the generic ones. Descriptions are redacted before storing.
+  -> 201 `{"id":"im_..","format","currency","rows":5,"imported":5,"skipped_duplicates":0,"months":["2026-02"],
+  "detected":{"delimiter",";","decimal":",","amount_format","date_format","date_ambiguous","sign","columns":{...}},
+  "transactions":[Transaction]}` (only the newly stored rows). A row already stored by an earlier import (same date,
+  description, amount and currency, or same OFX FITID) is skipped. 422 `import_unreadable` (message says why),
+  422 `invalid_mapping`, 413 `file_too_large`.
+- `GET /imports` -> `{"items":[{"id","format","created_at","currency","detected","months","rows","imported","skipped_duplicates"}]}` newest first.
+- `DELETE /imports/{id}` -> 204, removes its rows.
+
+Imported rows appear in `GET /transactions` (`source=import` filters), the monthly summary and subscriptions.
+Imported installment rows with `k/n` become plans in the schedule with `"source":"import"` (one plan per item,
+however many months were imported). Do not import a period you also uploaded as a PDF: both would count.
 
 ## Manual entry
 - `POST /transactions` body: `{"date","description","amount","currency","direction","installment":{"total_count":6,"amount_each":50000}|null}` -> 201 `Transaction` (`source:"manual"`).
@@ -67,7 +89,7 @@ Errors: `{"error": {"code": "string_code", "message": "human text", "details": {
 {"currency":"TRY","months":[{"month":"2026-11","total":411000,"items":[{"plan_id":"pl_01","description":"...","amount":373011,"index":2,"count":3}]}],
  "plans":[{"plan_id":"pl_01","description":"...","kind":"purchase|cash_advance","remaining_count":2,"amount_each":373011,"ends":"2026-12","total_remaining":746022}]}
 ```
-Every schedule item and every plan also carries `"breakdown":{"principal":int,"interest":int,"bsmv":int,"kkdf":int}` or `null`
+Each plan also has `"source":"statement|manual|import"`. Every schedule item and every plan also carries `"breakdown":{"principal":int,"interest":int,"bsmv":int,"kkdf":int}` or `null`
 (null for plain purchases; for a cash advance the four parts of that month / of the remaining total, summing to `amount` /
 `total_remaining`).
 - `GET /summary/monthly?month=2026-09` -> always 200 (a month with no data returns zeros, empty `by_category` and empty `statement_ids`, never 404) `{"month","currency","total_spend","total_credit","by_category":[{"category","amount","share":"0.18"}],"previous_month":{"total_spend","change":"0.12"}|null,"statement_ids":[...]}`

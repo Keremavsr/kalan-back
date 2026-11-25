@@ -230,6 +230,53 @@ class Store:
             ).fetchall()
             return [self._tx_from_row(r) for r in rows]
 
+    # -- imports ----------------------------------------------------------------------------------
+
+    def add_import(self, import_id: str, fmt: str, meta: dict[str, Any], txs: list[Transaction]) -> tuple[int, int]:
+        """Store an import; rows already stored (same stable id) are skipped. Returns (imported, skipped)."""
+        imported = skipped = 0
+        with self._tx() as con:
+            con.execute("INSERT INTO imports (id, format, data, created_at) VALUES (?, ?, '{}', ?)",
+                        (import_id, fmt, now_iso()))
+            for pos, tx in enumerate(txs):
+                tx = tx.model_copy(update={"description": redact_text(tx.description), "source": "import"})
+                data = tx.model_dump(mode="json", exclude={"category"})
+                cur = con.execute(
+                    "INSERT OR IGNORE INTO import_transactions (id, import_id, date, position, data) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (tx.id, import_id, tx.date.isoformat(), pos, json.dumps(data, ensure_ascii=False)),
+                )
+                if cur.rowcount:
+                    imported += 1
+                else:
+                    skipped += 1
+            meta = {**meta, "rows": len(txs), "imported": imported, "skipped_duplicates": skipped}
+            con.execute("UPDATE imports SET data = ? WHERE id = ?", (json.dumps(meta, ensure_ascii=False), import_id))
+        return imported, skipped
+
+    def list_imports(self) -> list[dict[str, Any]]:
+        with self._connect() as con:
+            rows = con.execute("SELECT * FROM imports ORDER BY created_at DESC, id").fetchall()
+            return [{"id": r["id"], "format": r["format"], "created_at": r["created_at"], **json.loads(r["data"])}
+                    for r in rows]
+
+    def import_transactions(self, import_id: str | None = None) -> list[Transaction]:
+        sql = "SELECT data, category FROM import_transactions"
+        args: tuple[str, ...] = ()
+        if import_id is not None:
+            sql, args = sql + " WHERE import_id = ?", (import_id,)
+        with self._connect() as con:
+            rows = con.execute(sql + " ORDER BY date, import_id, position", args).fetchall()
+            return [self._tx_from_row(r) for r in rows]
+
+    def delete_import(self, import_id: str) -> bool:
+        with self._tx() as con:
+            return con.execute("DELETE FROM imports WHERE id = ?", (import_id,)).rowcount > 0
+
+    def loose_transactions(self) -> list[Transaction]:
+        """Manual and imported rows: everything that is not part of a statement."""
+        return sorted(self.manual_transactions() + self.import_transactions(), key=lambda t: (t.date, t.id))
+
     def get_transaction(self, tx_id: str) -> Transaction | None:
         with self._connect() as con:
             row = con.execute("SELECT data, category FROM transactions WHERE id = ?", (tx_id,)).fetchone()

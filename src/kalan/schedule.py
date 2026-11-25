@@ -72,7 +72,7 @@ class PlanSummary(BaseModel):
     amount_each: int
     ends: str
     total_remaining: int
-    source: Literal["statement", "manual"] = "statement"
+    source: Literal["statement", "manual", "import"] = "statement"
     breakdown: Breakdown | None = Field(default=None, description="Parts of total_remaining; null for purchases")
     last_statement_id: str | None = None
 
@@ -100,7 +100,7 @@ class PlanState:
     total_count: int | None
     closed: bool
     components: dict[str, int] | None = None
-    source: Literal["statement", "manual"] = "statement"
+    source: Literal["statement", "manual", "import"] = "statement"
 
 
 _CA_MARKER = re.compile(r"\s*\d{1,2}\s*\.\s*(Taksit Anap|BSMV|KKDF|Vade Fark\w*)\s*$", re.IGNORECASE)
@@ -187,7 +187,9 @@ def first_billing_month(start: date, cut_off_day: int | None = None) -> str:
     return month
 
 
-def _manual_state(m: ManualInstallment, cut_off_day: int | None) -> tuple[PlanState, str]:
+def _manual_state(
+    m: ManualInstallment, cut_off_day: int | None, source: Literal["manual", "import"] = "manual"
+) -> tuple[PlanState, str]:
     first = first_billing_month(m.start_date, cut_off_day)
     state = PlanState(
         plan_id=m.id,
@@ -201,7 +203,7 @@ def _manual_state(m: ManualInstallment, cut_off_day: int | None) -> tuple[PlanSt
         index=0,
         total_count=m.total_count,
         closed=False,
-        source="manual",
+        source=source,
     )
     return state, first
 
@@ -213,6 +215,7 @@ def build_schedule(
     start_month: str | None = None,
     cut_off_day: int | None = None,
     today: date | None = None,
+    imported: list[ManualInstallment] | None = None,
 ) -> Schedule:
     """Project committed installments for ``months`` months starting at ``start_month``.
 
@@ -224,6 +227,8 @@ def build_schedule(
     states = list(plan_states(statements).values())
     for m in manual or []:
         states.append(_manual_state(m, cut_off_day)[0])
+    for m in imported or []:
+        states.append(_manual_state(m, cut_off_day, "import")[0])
 
     if start_month is None:
         if statements:
@@ -269,7 +274,8 @@ def build_schedule(
             )
         )
 
-    currency = statements[0].currency if statements else (manual[0].currency if manual else "TRY")
+    loose = (manual or []) + (imported or [])
+    currency = statements[0].currency if statements else (loose[0].currency if loose else "TRY")
     return Schedule(
         currency=currency,
         start_month=start_month,

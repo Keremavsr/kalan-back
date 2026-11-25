@@ -124,7 +124,14 @@ def _error_text(exc) -> str:
 
     key = f"error.{exc.code}"
     message = t(key) if get_lang() == "tr" and has(key) else exc.message
-    return t("cli.error", message=message, code=exc.code)
+    lines = [t("cli.error", message=message, code=exc.code)]
+    hints = exc.details.get("hints")
+    if hints:  # encrypted PDF: where each bank takes the password from
+        lines += [t("password.hints"), *(t("password.hint", bank=h["bank"], hint=h["hint"]) for h in hints)]
+    if exc.code == "save_blocked":
+        lines += [t("blocked.issue", code=i["code"], message=i["message"])
+                  for i in exc.details.get("issues", []) if i.get("severity") == "hard"]
+    return "\n".join(lines)
 
 
 def run_data_command(cmd, args: argparse.Namespace, kalan=None) -> int:

@@ -13,13 +13,16 @@ from __future__ import annotations
 import re
 import time
 import uuid
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
 from typing import Any, Literal
 
+from kalan import categories, gate
 from kalan.ai import reader
 from kalan.ai.adapters import DEFAULT_TIMEOUT, Adapter, AdapterError, ProviderRegistry
 from kalan.ai.jobs import JobRunner
+from kalan.ai.prompt import CATEGORIES
 from kalan.alerts import Alert, compute_alerts
 from kalan.amounts import month_key
 from kalan.config import Config
@@ -39,7 +42,7 @@ from kalan.reconcile import reconcile
 from kalan.redact import redact
 from kalan.schedule import Schedule
 from kalan.simulate import SimulationIn, simulate
-from kalan.store import DuplicateStatementError, Store
+from kalan.store import DuplicateRuleError, DuplicateStatementError, Store
 from kalan.summary import attributed, monthly_summary, subscriptions
 from kalan.text import fold
 
@@ -109,10 +112,13 @@ class Kalan:
         """Parser and template ids accepted by ``import --bank``."""
         return [p.id for p in all_parsers()]
 
-    def import_file(self, path: str | Path, bank: str | None = None, ai_fallback: bool = True) -> dict[str, Any]:
+    def import_file(self, path: str | Path, bank: str | None = None, ai_fallback: bool = True,
+                    password: str | None = None) -> dict[str, Any]:
         """Import a statement PDF (or its extracted ``.txt``) or a CSV, OFX or QIF file.
 
-        ``bank`` forces a parser for a PDF and selects the template rules for a CSV. Returns
+        ``bank`` forces a parser for a PDF and selects the template rules for a CSV. ``password`` opens an
+        encrypted PDF; without it the passwords remembered in the OS keyring are tried. The statement goes
+        through the same save gate and category rules as ``POST /statements``. Returns
         ``{"kind": "statement", "statement": {...}}`` or ``{"kind": "import", ...}`` (the
         ``POST /imports`` answer).
         """
@@ -131,19 +137,64 @@ class Kalan:
         if bank is not None and bank not in self.banks():
             raise ServiceError("unknown_bank", f"No parser or template with id {bank!r}.", {"banks": self.banks()})
         if kind in ("pdf", "txt"):
-            return {"kind": "statement", "statement": self._import_statement(data, kind, bank, ai_fallback)}
+            return {"kind": "statement",
+                    "statement": self._import_statement(data, kind, bank, ai_fallback, password)}
         return {"kind": "import", **self._import_rows(data, path.name, bank, kind)}
 
-    def _import_statement(self, data: bytes, kind: ImportKind, bank: str | None, ai_fallback: bool) -> dict[str, Any]:
+    def password_hints(self) -> list[dict[str, str]]:
+        """``[{"bank", "hint"}]``: where each bank's statement password comes from, as the parsers know it."""
+        hints: dict[str, str] = {}
+        for p in all_parsers():
+            if p.password_hint and p.bank not in hints:
+                hints[p.bank] = p.password_hint
+        return [{"bank": b, "hint": h} for b, h in sorted(hints.items())]
+
+    def _open_pdf[T](self, data: bytes, password: str | None, read: Callable[..., T]) -> T:
+        """``read(data, password=...)``; an encrypted PDF opens with ``password`` or a remembered one.
+
+        Same codes as the API: ``pdf_password_wrong``, ``pdf_password_required`` (both with ``hints``),
+        ``invalid_pdf``.
+        """
+        from kalan import pdf_passwords
+        from kalan.pdf import PasswordError
+
+        try:
+            return read(data, password=password)
+        except PasswordError as exc:
+            if exc.wrong:
+                raise ServiceError("pdf_password_wrong", "The password does not open this PDF.",
+                                   {"hints": self.password_hints()}) from None
+            found = pdf_passwords.open_with_remembered(data, sorted({p.bank for p in all_parsers()}), read=read)
+            if found is None:
+                raise ServiceError("pdf_password_required", "The PDF is encrypted. Give its password with "
+                                   "--password.", {"hints": self.password_hints()}) from None
+            return found[0]
+        except Exception:  # broken PDF
+            raise ServiceError("invalid_pdf", "The PDF could not be opened.") from None
+
+    def _save_gate(self, st: Statement) -> Statement:
+        """:func:`kalan.gate.check` as in ``POST /statements``: hard findings raise, soft ones mark for review."""
+        issues = gate.check(st, self.store.all_statements())
+        blocking = gate.hard(issues)
+        dup = next((i for i in blocking if i.code == "duplicate_statement"), None)
+        if dup is not None:
+            raise ServiceError("duplicate", "This statement is already stored.",
+                               {"statement_id": dup.details["statement_id"]})
+        if blocking:
+            raise ServiceError("save_blocked", "The statement was read but failed the checks before saving: "
+                               + ", ".join(i.code for i in blocking) + ".",
+                               {"issues": [i.model_dump(mode="json") for i in issues]})
+        review = gate.soft(issues)
+        return st.model_copy(update={"needs_review": True, "review": review}) if review else st
+
+    def _import_statement(self, data: bytes, kind: ImportKind, bank: str | None, ai_fallback: bool,
+                          password: str | None = None) -> dict[str, Any]:
         if kind == "pdf":
             if not data.startswith(PDF_MAGIC):
                 raise ServiceError("not_pdf", "The file is not a PDF.")
             from kalan.pdf import extract_text
 
-            try:
-                text = extract_text(data)
-            except Exception:  # broken or encrypted PDF
-                raise ServiceError("invalid_pdf", "The PDF could not be opened.") from None
+            text = self._open_pdf(data, password, extract_text)
         else:
             text = data.decode("utf-8-sig", errors="replace")
         kept_text: str | None = None
@@ -158,6 +209,8 @@ class Kalan:
             raise ServiceError("parse_error", "The statement was recognised but could not be read.") from None
         except Exception:
             raise ServiceError("parse_error", "The statement was recognised but could not be read.") from None
+        st = self._save_gate(st)
+        st = st.model_copy(update={"transactions": categories.apply(st.transactions, self._user_rules())})
         try:
             saved = self.store.add_statement(st, redacted_text=kept_text)
         except DuplicateStatementError as dup:
@@ -209,13 +262,80 @@ class Kalan:
             raise ServiceError("import_unreadable", f"The file could not be imported: {exc}") from None
         import_id = StatementParser.stable_id("im", uuid.uuid4().hex)
         meta = {"currency": result.currency, "detected": result.detected, "months": result.months}
-        imported, skipped = self.store.add_import(import_id, result.format, meta, result.transactions)
+        rows = categories.apply(result.transactions, self._user_rules())
+        imported, skipped = self.store.add_import(import_id, result.format, meta, rows)
         stored = self.store.import_transactions(import_id)
         return {
             "id": import_id, "format": result.format, "currency": result.currency, "rows": len(result.transactions),
             "imported": imported, "skipped_duplicates": skipped, "months": result.months,
             "detected": result.detected, "transactions": [t.model_dump(mode="json") for t in stored],
         }
+
+    # -- anonymous diagnosis (``POST /diagnose``) -------------------------------------------------
+
+    def diagnose(self, path: str | Path, password: str | None = None) -> dict[str, Any]:
+        """Structure-only report of a statement PDF: ``{"report": {...}, "text": "..."}``. Nothing is stored.
+
+        ``text`` is what a user pastes into the GitHub issue form; it holds no text or amount of the statement.
+        """
+        from kalan.diagnose import as_text, diagnose
+
+        path = Path(path)
+        try:
+            data = path.read_bytes()
+        except OSError as exc:
+            raise ServiceError("file_unreadable", f"cannot read {path.name} ({exc.strerror or type(exc).__name__})",
+                               {"path": str(path)}) from None
+        if len(data) > self.config.max_upload_bytes:
+            raise ServiceError("file_too_large", "The file is larger than 10 MB.",
+                               {"max_bytes": self.config.max_upload_bytes})
+        if not data.startswith(PDF_MAGIC):
+            raise ServiceError("not_pdf", "The file is not a PDF.")
+        report = self._open_pdf(data, password, diagnose)
+        return {"report": report, "text": as_text(report)}
+
+    # -- category rules (``/category-rules``) -----------------------------------------------------
+
+    def _user_rules(self) -> list[categories.Rule]:
+        return [categories.Rule.of(r["pattern"], r["category"]) for r in self.store.category_rules()]
+
+    def category_rules(self) -> dict[str, Any]:
+        """``GET /category-rules``: the user's rules, oldest first, and the category names a rule may use."""
+        return {"items": self.store.category_rules(), "categories": list(CATEGORIES)}
+
+    def add_category_rule(self, pattern: str, category: str, apply: bool = True) -> dict[str, Any]:
+        """``POST /category-rules``: ``{"rule": {...}, "applied": n}``; ``apply`` recategorises stored rows
+        not categorised by hand."""
+        pattern = pattern.strip()
+        if not 1 <= len(pattern) <= 80:
+            raise ServiceError("invalid_pattern", "The pattern must be 1 to 80 characters.")
+        if category not in CATEGORIES:
+            raise ServiceError("invalid_category", f"Unknown category {category!r}.",
+                               {"categories": list(CATEGORIES)})
+        try:
+            rule = categories.Rule.of(pattern, category)
+        except ValueError:
+            raise ServiceError("invalid_pattern", "The pattern has no letters or digits.") from None
+        try:
+            saved = self.store.add_category_rule(f"cr_{uuid.uuid4().hex[:12]}", pattern, rule.folded, category)
+        except DuplicateRuleError as dup:
+            raise ServiceError("duplicate_rule", "A rule with this pattern exists.",
+                               {"rule_id": dup.existing_id}) from None
+        applied = 0
+        if apply:
+            rules = self._user_rules()
+
+            def pick(tx: Transaction) -> str | None:
+                found = categories.categorize(tx, rules)
+                return found[0] if found is not None and found[1] == "user_rule" else None
+
+            applied = self.store.recategorize(pick)
+        return {"rule": saved, "applied": applied}
+
+    def delete_category_rule(self, rule_id: str) -> None:
+        """``DELETE /category-rules/{id}``. Rows it categorised keep their category."""
+        if not self.store.delete_category_rule(rule_id):
+            raise ServiceError("category_rule_not_found", "No category rule with this id.", {"id": rule_id})
 
     # -- calculations -----------------------------------------------------------------------------
 

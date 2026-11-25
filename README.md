@@ -53,7 +53,7 @@ Every screen of the app is also a command. Tables by default; add `--json` for s
 minor units, `123456` = `1.234,56`). Turkish names, English aliases in brackets:
 
 ```sh
-kalan import ekstre.pdf            # a statement PDF; also .csv, .ofx, .qif  (--bank ID, --no-ai)
+kalan import ekstre.pdf            # a statement PDF; also .csv, .ofx, .qif  (--bank ID, --no-ai, --password)
 kalan statements                   # stored statements, newest first      (ekstreler)
 kalan takvim -n 6                  # installments of the next 6 months    (schedule)
 kalan ay 2099-01                   # spending of a month by category      (month)
@@ -70,8 +70,15 @@ kalan tahmin [--backtest]          # next statement forecast              (forec
 kalan erkenkapama [PLAN_ID]        # early payoff                         (payoff)
 kalan sabitler                     # fixed costs matched to card rows     (fixed)
 kalan disari --format csv --out x  # export: hledger, beancount, ofx, csv (export)
+kalan kategori                     # your category rules (categories)
+kalan kategori --ekle "ORNEK MARKET" market   # add a rule; --sil RULE_ID deletes one
+kalan teshis ekstre.pdf            # anonymous structure report for a bug report (diagnose)
 kalan banks                        # ids for --bank
 ```
+
+An encrypted PDF opens with a password remembered in the app (OS keyring), or with `--password`; give
+`--password` without a value to type it without echo. Imports from the terminal go through the same checks
+and category rules as uploads in the app.
 
 The terminal speaks Turkish when the system language is Turkish and English otherwise; `--lang tr|en` or
 `KALAN_LANG` overrides it. Turkish output writes money as `1.234,56 TL`. `--json` is never translated.
@@ -84,7 +91,7 @@ write the same database as `kalan serve`, so the app shows what you imported fro
 `kalan mcp` is a local MCP server on stdio. Your own AI CLI starts it and can then answer questions like
 "where did I spend most this month?" from your data. It only reads: list statements, one statement,
 installment schedule, monthly summary, alerts, subscriptions, transaction search, minimum payment
-plan, which card today, next statement forecast, early payoff and annual card fees. It cannot import,
+plan, which card today, next statement forecast, early payoff, annual card fees and your category rules. It cannot import,
 delete, change settings or call another AI. What it returns goes to the model your CLI uses, so a cloud
 model sees those rows (redacted descriptions, amounts, dates; never card numbers or names).
 

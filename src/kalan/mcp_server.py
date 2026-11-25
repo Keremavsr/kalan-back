@@ -141,6 +141,13 @@ def build_server(k: Kalan | None = None) -> MCPServer:
         """Annual card fee (aidat) lines on the statements, newest first, and whether a refund was seen."""
         return {"items": k.card_fees()}
 
+    @server.tool(annotations=READ_ONLY)
+    def category_rules() -> dict[str, Any]:
+        """The user's own category rules, oldest first (merchant phrase matched as whole words, case and Turkish
+        accents ignored -> category), and the category names a rule may use. User rules win over the built-in
+        ones. Read-only: rules are added in the app or with `kalan kategori --add`."""
+        return k.category_rules()
+
     return server
 
 

@@ -20,7 +20,7 @@ from kalan.store import Store
 GB_PDFS = sorted((Path(__file__).parent / "fixtures" / "garanti").glob("gb-*.pdf"))
 TOOLS = {"list_statements", "get_statement", "installment_schedule", "monthly_summary", "alerts", "subscriptions",
          "search_transactions", "minimum_payment", "which_card", "next_statement_forecast", "early_payoff",
-         "card_fees"}
+         "card_fees", "category_rules"}
 
 
 @pytest.fixture
@@ -96,7 +96,15 @@ def test_tool_errors(kalan):
         assert call(server, name, args).is_error, name
 
 
+def test_category_rules_tool(kalan):
+    kalan.add_category_rule("ORNEK MARKET", "groceries", apply=False)
+    rules = data(call(build_server(kalan), "category_rules"))
+    assert [(r["pattern"], r["category"]) for r in rules["items"]] == [("ORNEK MARKET", "groceries")]
+    assert "groceries" in rules["categories"]
+
+
 def test_nothing_was_written(kalan):
+    kalan.add_category_rule("ORNEK MARKET", "groceries", apply=False)
     before = kalan.config.db_path.read_bytes()
     server = build_server(kalan)
     for name in TOOLS - {"get_statement"}:

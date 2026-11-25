@@ -34,11 +34,69 @@ repository and talks to this service over HTTP only (see [docs/api.md](docs/api.
 
 ## Install
 
-Requires Python 3.12 or newer.
+Download the file for your computer from the latest GitHub Release and put it on your PATH:
+
+| System | File |
+| --- | --- |
+| Windows (x64) | `kalan-back-windows-x64.exe` (rename it to `kalan.exe`) |
+| macOS (Apple silicon) | `kalan-back-macos-arm64` (rename it to `kalan`, then `chmod +x kalan`) |
+| Linux (x64) | `kalan-back-linux-x64` (rename it to `kalan`, then `chmod +x kalan`) |
+
+`SHA256SUMS.txt` in the same release lists the checksum of each file. The builds are not signed yet:
+Windows SmartScreen and macOS Gatekeeper warn on first start (on macOS, `xattr -d com.apple.quarantine kalan`).
+
+With Python 3.12 or newer you can also install from source: `pipx install .`
+
+## Use from the terminal
+
+Every screen of the app is also a command. Tables by default; add `--json` for scripts (money is then in
+minor units, `123456` = `1.234,56`). Turkish names, English aliases in brackets:
 
 ```sh
-pipx install .
+kalan import ekstre.pdf            # a statement PDF; also .csv, .ofx, .qif  (--bank ID, --no-ai)
+kalan statements                   # stored statements, newest first      (ekstreler)
+kalan takvim -n 6                  # installments of the next 6 months    (schedule)
+kalan ay 2099-01                   # spending of a month by category      (month)
+kalan islemler -s market           # search transactions                  (transactions)
+kalan abonelikler                  # recurring charges                    (subscriptions)
+kalan uyarilar                     # alerts                               (alerts)
+kalan simule 9.999,99 6            # what if I buy this in 6 installments (simulate)
+kalan analiz st_0123456789ab       # AI commentary on one statement       (analyze)
+kalan banks                        # ids for --bank
 ```
+
+`--data-dir PATH` (or `KALAN_DATA_DIR`) points every command at another database. The commands read and
+write the same database as `kalan serve`, so the app shows what you imported from the terminal.
+
+## Use with your AI
+
+`kalan mcp` is a local MCP server on stdio. Your own AI CLI starts it and can then answer questions like
+"where did I spend most this month?" from your data. It only reads: list statements, one statement,
+installment schedule, monthly summary, alerts, subscriptions and transaction search. It cannot import,
+delete, change settings or call another AI. What it returns goes to the model your CLI uses, so a cloud
+model sees those rows (redacted descriptions, amounts, dates; never card numbers or names).
+
+```sh
+claude mcp add --scope user kalan -- kalan mcp     # Claude Code
+codex mcp add kalan -- kalan mcp                   # Codex CLI
+gemini mcp add --scope user kalan kalan mcp        # Gemini CLI
+```
+
+Or by hand: Codex `~/.codex/config.toml`
+
+```toml
+[mcp_servers.kalan]
+command = "kalan"
+args = ["mcp"]
+```
+
+Gemini CLI `~/.gemini/settings.json`
+
+```json
+{ "mcpServers": { "kalan": { "command": "kalan", "args": ["mcp"] } } }
+```
+
+Use the full path of the file instead of `kalan` if it is not on your PATH.
 
 ## Run
 
@@ -91,6 +149,17 @@ ruff check .
 pytest
 python tools/synth_vakifbank.py     # regenerate the synthetic VakıfBank fixtures
 ```
+
+One-file build (what the release workflow does on each OS):
+
+```sh
+pip install -e ".[build]"
+pyinstaller packaging/kalan.spec --clean --noconfirm   # dist/kalan.exe or dist/kalan
+python packaging/smoke.py dist/kalan.exe
+```
+
+The build bundles pypdfium2 and never PyMuPDF. Tagging `vX.Y.Z` (equal to the package version) runs
+`.github/workflows/release.yml`, which attaches the three files and `SHA256SUMS.txt` to a GitHub Release.
 
 Supported statements are the templates in `src/kalan/templates/` and the parsers in `src/kalan/parsers/`.
 To add a bank (a YAML template, no Python needed), see

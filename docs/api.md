@@ -229,6 +229,8 @@ Each plan also has `"source":"statement|manual|import"`. Every schedule item and
 | `missing_statement` | warning | bank, card_last4 | a month missing between two stored statements of a card |
 | `subscription_price_rise` | info | merchant, amount_previous, amount_last, price_change, currency | a subscription's last charge is higher than the one before |
 | `due_soon` | warning, critical at <= 1 day | due_date, days_left, statement_total, minimum_payment, currency | due date within 5 days and a balance is owed |
+| `statement_overdue` | warning | bank, card_last4, expected_cut_off, days_overdue | a card's next statement (printed next cut-off, else the same day next month) is more than 7 days past its cut-off and not uploaded |
+| `charged_after_cancel` | critical | merchant, cancelled_on, count, total, currency | a debit from a subscription marked cancelled (`/insights/cancelled-subscriptions`), dated after the cancellation |
 
 ## Model analysis (one call per statement)
 - `POST /statements/{id}/analyze` -> 202 `{"job_id":"job_01","status":"pending"}`
@@ -238,3 +240,132 @@ Each plan also has `"source":"statement|manual|import"`. Every schedule item and
 What is sent to the model: only date, description, amount, currency, kind per transaction plus code-computed totals. Never card number, name, address, IBAN, customer number.
 The AI fallback and template draft send the statement's page text after redaction (card number, name, address, IBAN,
 national id, phone, e-mail and long numbers removed), redacted a second time just before sending.
+
+## Insights (task 5b, computed by code)
+Routes under `/insights`. Every function behind them is a plain Python function in `kalan.insights.*` (named per
+route below), so the CLI and an MCP server can call it too. Rates and legal limits come from dated data files in
+`src/kalan/insights/data/` (each value with its source URL and check date); nothing leaves the machine except the AI
+prompt the user copies or sends themselves.
+
+### Rules and overrides
+- `GET /insights/rules` -> `{"rules":{...tr_card_rules.json...},"overrides":{"contractual_monthly","late_monthly","bsmv","kkdf","minimum_ratio"}}`
+  (unset overrides are `null`).
+- `PUT /insights/rules` body: any of the override fields (rates as percent per month `"3.08"`, shares as fractions
+  `"0.15"`) -> same as GET. The body replaces all overrides; `{}` clears them. 422 on a malformed value.
+  Precedence everywhere: override, then what the statement prints (rate capped at the TCMB maximum for the date,
+  printed minimum payment), then the data file.
+
+### If I pay only the minimum (`kalan.insights.minimum.minimum_payment_plan`)
+- `GET /insights/minimum-payment?statement_id=<id>&include_installments=false&cycles=<n>` (default: latest
+  statement, all cycles) ->
+```json
+{"statement_id","currency","start_balance":100000,
+ "minimum_only":{"cycles":38,"paid_off":true,"last_payment_cut_off":"2102-02-15","total_paid":118000,"interest":13846,"bsmv":2077,"kkdf":2077,"cost":18000,"balance_left":0},
+ "pay_in_full":{"total_paid":100000,"cost":0},"extra_cost":18000,
+ "rates":{"contractual_monthly":[{"from_cycle":1,"monthly":"3.08","source":"override|statement|rules","detail":null}],
+          "bsmv":{"value":"0.15","source":"rules","detail":null},"kkdf":{...},"minimum_ratio":{"value":"0.20","source":"rules|statement|override|assumption","detail":"..."}},
+ "assumptions":[{"key":"minimum_paid_on_time","text":"..."}],
+ "cycles":[{"cycle":1,"cut_off":"2099-01-15","balance":100000,"payment":20000,"unpaid":80000,"days":31,"interest":1653,"bsmv":248,"kkdf":248,"added":0,"next_balance":82149}]}
+```
+  Each cycle pays the minimum (the printed one first, then `ratio` x the new total, rounded up); the unpaid part
+  carries contractual interest `unpaid x rate/100 x days/30` for the real days between cut-offs; BSMV and KKDF are
+  shares of the interest. `include_installments=true` adds the scheduled installments of each month (`added`).
+  409 `no_statements`, 404 `statement_not_found`. Stops after 600 cycles (`paid_off:false`, `balance_left`).
+
+### Card fee refund letter (`kalan.insights.card_fee.find_card_fees`, `refund_letter_prompt`)
+- `GET /insights/card-fees` -> `{"items":[{"transaction_id","statement_id","date","description","amount","currency","bank","product","card_last4","statement_period_end","supplementary_card":false,"refunded":false}]}`
+  newest first: fee rows whose description names an annual card / membership fee (`aidat`, `yıllık kart ücreti`,
+  `üyelik ücreti`), never BSMV/KKDF or interest lines. `refunded` when a credit fee line of the same amount appears on
+  the same card.
+- `GET /insights/card-fees/{transaction_id}/prompt` -> `{"fee",...,"route":"hakem_heyeti|consumer_court","hakem_heyeti":{"year":2026,"limit_below":18600000,"currency":"TRY","source","apply"},
+  "legal_basis":[{"id","title","summary","source","verified"}],"placeholders":["[AD SOYAD]","[TC KİMLİK NO]",...],"prompt":"...","note"}`.
+  The prompt asks the user's AI for a refund request to the bank and a Hakem Heyeti (or consumer court) application,
+  with personal fields left as placeholders. `route` compares the fee with the current Hakem Heyeti limit
+  (`data/tr_consumer_law.json`). 404 `card_fee_not_found`.
+- `POST /insights/card-fees/{transaction_id}/draft` -> `{"provider","text","route","placeholders_kept":[...],"placeholders_missing":[...]}`:
+  sends that prompt to the selected provider and returns its text. Nothing is stored. 409 `no_provider` /
+  `provider_unavailable`, 502 `provider_failed`.
+
+### Which card for installments today (`kalan.insights.which_card.card_options`)
+- `GET /insights/which-card?date=YYYY-MM-DD` (default today) -> `{"date","best":Card|null,"cards":[Card],"assumptions":[{"key","text"}]}`,
+  `Card` = `{"bank","product","card_last4","statement_id","cut_off","cut_off_day","due_offset_days","due_date","due_date_effective","shifted_days","interest_free_days","days_until_cut_off","first_installment_month","basis":"printed|projected","stale":false}`.
+  One entry per card (latest statement of each bank + last four). A purchase on `date` is billed on the first cut-off on
+  or after it (the printed next cut-off and due date when the statement has them, else the same day of the month,
+  clipped in short months, and the same cut-off-to-due gap). `due_date_effective` moves a weekend or public holiday to
+  the next business day (`data/tr_holidays.json`); `interest_free_days` counts from `date` to it. Sorted by
+  `interest_free_days`, most first.
+
+### Shareable installment load card (`kalan.insights.share_card.load_card`, `load_svg`)
+- `GET /insights/share-card?locale=tr|en&amounts=false` -> `{"locale","show_amounts":false,"sentence":"...","months":[{"month":"2099-01","share":"1.00"}],"svg":"<svg ...>"}`
+  over the next 12 schedule months (same window as `GET /installments/schedule?months=12`). `share` is the month's
+  installment total relative to the busiest month. With `amounts=true` each month also has `total`, the response has
+  `currency`, and the sentence and bars show rounded amounts. The card never contains merchant names, plan
+  descriptions, bank names or card numbers; the SVG uses system fonts only and loads nothing from the network.
+- `GET /insights/share-card.svg?locale=tr|en&amounts=false` -> the same SVG as `image/svg+xml` (1200 x 630).
+
+### Open period and next statement forecast (`kalan.insights.forecast.next_statement_forecast`, `backtest`)
+- `GET /insights/forecast?include_fixed=true` ->
+```json
+{"open_period":{"from":"2099-05-16","to":"2099-05-25","transactions":[Transaction],"debit_total":35000,"credit_total":0},
+ "forecast":{"month":"2099-06","currency":"TRY","total":144999,
+   "parts":{"installments":10000,"subscriptions":4999,"variable":30000,"fixed":100000},"include_fixed":true,
+   "variable_basis":{"months":["2099-01","..."],"median":30000,"known_in_month":0},
+   "installment_items":[ScheduleItem],"subscriptions":[{"merchant","amount"}]},
+ "backtest":{"currency","count":3,"mae":20000,"mape":"0.36","bias":-20000,"min_history":2}}
+```
+  The forecast month is the one after the latest cut-off. `open_period` lists manual and imported rows dated after
+  that cut-off. Parts: installments already scheduled for the month, the last amount of every subscription seen in
+  the latest month, fixed costs due that month (counted in `total` only with `include_fixed=true`, since they may not
+  be paid by card), and `variable` = the median of the other spend (spend minus installment and subscription rows) of
+  up to 6 earlier months, at least what is already known for the month. Spend follows the monthly summary rule.
+- `GET /insights/forecast/backtest?include_fixed=true&history=6&min_history=2` -> the same summary plus
+  `"months":[{"month","forecast","actual","error","parts"}]`: every past statement month with at least `min_history`
+  earlier statement months is forecast from earlier data only. `mae` mean absolute error (minor units), `mape` mean
+  of |error| / actual over months with spend, `bias` mean signed error (positive = forecast too high); all `null`
+  when no month qualifies.
+
+### Early payoff (`kalan.insights.early_payoff.payoff`, `payoff_overview`, `closed_early`)
+- `GET /insights/early-payoff` -> `{"currency","start_month","plans":[Payoff],"closed_early":[{"plan_id","statement_id","month","transaction_id","index","total_count"}]}`:
+  every open plan paid off in the first schedule month, and plans a statement already shows as closed before their
+  last installment (an `early_payoff` row, or a row marked last below the plan length).
+- `GET /insights/early-payoff/{plan_id}?month=YYYY-MM` (default: first schedule month) -> `Payoff` =
+  `{"plan_id","description","kind","source","currency","payoff_month","remaining_count","amount_each","remaining_total","discount_rule":"unknown","note",
+  "breakdown":{"principal","interest","bsmv","kkdf"}|null,"remaining_principal":int|null,"would_save_if_future_interest_dropped":int|null,
+  "schedule_effect":[{"month","without","with"}]}`. Installments before `month` are billed as usual; all later ones
+  are billed together in `month`. kalan knows no bank's payoff discount: `remaining_total` is the plain remaining
+  amount; for a cash advance with a printed split, `remaining_principal` is what it would be if the bank dropped the
+  future vade farkı, BSMV and KKDF. A purchase plan has no separate interest (`remaining_principal` =
+  `remaining_total`). 404 `plan_not_found`, 422 `month_outside_schedule`.
+
+### Cancelled subscriptions and fixed-cost matching (`kalan.insights.cancellations`, `kalan.insights.fixed_match.fixed_cost_report`)
+- `GET /insights/cancelled-subscriptions` -> `{"items":[{"merchant","cancelled_on"}]}`.
+- `POST /insights/cancelled-subscriptions` body `{"merchant":"ORNEK MUZIK","cancelled_on":"2099-02-28"}` -> 201 the
+  full list. Same merchant (ignoring case and accents) replaces the earlier entry; the name is redacted. Feeds the
+  `charged_after_cancel` alert (merchant matched inside the normalized row merchant, ignoring case and accents).
+- `DELETE /insights/cancelled-subscriptions?merchant=...` -> 204, 404 `cancellation_not_found`.
+- `GET /insights/fixed-costs/matches` -> `{"tolerance":{"amount":"0.075","days":2},"costs":[{"fixed_cost_id","name","amount","currency","day",
+  "matches":[{"fixed_cost_id","month","transaction_id","date","amount","amount_diff","day_diff"}],"missing_months":["2099-02"]}],
+  "duplicates":[{"fixed_cost_ids":["fc_a","fc_b"],"same_name":true,"amount_diff":40000,"day_gap":1}]}`.
+  A debit row (not an installment, same currency) matches a fixed cost when its amount is within 7.5 % and its date
+  within 2 days of the fixed cost's day (clipped in short months, across month ends). One row per fixed cost per
+  month, closest date then closest amount. `missing_months` are active months strictly between the first and the
+  last month with any data that have no match. Duplicates: overlapping periods, amounts within 7.5 %, days within 2.
+  The forecast uses these matches so a fixed cost paid by card is counted once.
+
+### Export (`kalan.insights.export.export`)
+- `GET /insights/export?format=hledger|beancount|ofx|csv&what=transactions|plans&currency=TRY` -> the file as text
+  (`text/plain`, `application/x-ofx` or `text/csv`) with `Content-Disposition: attachment; filename="kalan-<what>.<ext>"`
+  and `X-Kalan-Skipped-Rows` (OFX holds one currency: rows in other currencies are left out and counted).
+  Rows: every stored transaction (statements, manual, imports) except opening balance lines (`carry_over`).
+  - `hledger`: one entry per row (`expenses:<category or kind>` or `assets:payments` against
+    `liabilities:card:<bank>:<last4>`; `manual` / `import` for loose rows), tags `kind`, `source`, `id`,
+    `installment`; plans as periodic transactions (`~ monthly from .. to ..`, for `hledger --forecast`).
+  - `beancount`: `option "operating_currency"`, `open` directives, one entry per row with `kalan-id` / `kind` /
+    `installment` metadata, plans as `custom "kalan-plan"` entries.
+  - `ofx`: OFX 2.2 credit card statement in `currency` (default base currency); charges negative, `FITID` = kalan id,
+    installment `k/n` in `MEMO` when the description does not carry it.
+  - `csv`: `date,description,debit,credit,currency,installment,kind,category,source,account,id` (plain dot decimals);
+    `what=plans` (CSV only, else 422 `plans_csv_only`) gives
+    `plan_id,description,kind,source,amount_each,remaining_count,ends,total_remaining,currency`.
+  CSV and OFX exports import back through `POST /imports` with the same dates, amounts, directions and installment
+  numbers.

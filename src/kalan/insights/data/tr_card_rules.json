@@ -1,0 +1,111 @@
+{
+  "country": "TR",
+  "checked_on": "2026-11-25",
+  "note": "Legal maximums and statutory rates for Turkish lira credit cards. Banks may charge less; a rate printed on the statement wins over this file, and a user override in settings wins over both. Amounts are in kuruş.",
+  "interest": {
+    "basis": "Monthly rate on the unpaid balance for the actual days from one cut-off date to the next, divided by 30 (TCMB/BDDK practice, see the bank example). Not compounded inside a cycle.",
+    "tier_by": "statement_total",
+    "sets": [
+      {
+        "effective_from": "2026-01-01",
+        "tiers": [
+          {
+            "below": 3000000,
+            "contractual_monthly": "3.25",
+            "late_monthly": "3.55"
+          },
+          {
+            "below": 18000000,
+            "contractual_monthly": "3.75",
+            "late_monthly": "4.05"
+          },
+          {
+            "below": null,
+            "contractual_monthly": "4.25",
+            "late_monthly": "4.55"
+          }
+        ],
+        "cash_advance_monthly": "4.25",
+        "foreign_currency_monthly": "2.98",
+        "source": "https://www.tcmb.gov.tr/wps/wcm/connect/TR/TCMB+TR/Main+Menu/Istatistikler/Bankacilik+Verileri/Kredi_Karti_Islemlerinde_Uygulanacak_Azami_Faiz_Oranlari",
+        "verified": "TCMB table, checked on the official page 2026-11-25: 3.25 / 3.75 / 4.25 % from 1/1/2026 to 30/11/2026. Earlier rows (Dec 2025: 3.50 / 4.00 / 4.50 % with 25.000 / 150.000 TL bands) are not in this file. Late interest = contractual + 0.30 points (TCMB Tebliğ 2020/16 art. 5)."
+      },
+      {
+        "effective_from": "2026-12-01",
+        "tiers": [
+          {
+            "below": 3000000,
+            "contractual_monthly": "3.08",
+            "late_monthly": "3.38"
+          },
+          {
+            "below": 18000000,
+            "contractual_monthly": "3.58",
+            "late_monthly": "3.88"
+          },
+          {
+            "below": null,
+            "contractual_monthly": "4.08",
+            "late_monthly": "4.38"
+          }
+        ],
+        "cash_advance_monthly": "4.08",
+        "foreign_currency_monthly": "2.86",
+        "source": "https://www.tcmb.gov.tr/wps/wcm/connect/TR/TCMB+TR/Main+Menu/Istatistikler/Bankacilik+Verileri/Kredi_Karti_Islemlerinde_Uygulanacak_Azami_Faiz_Oranlari",
+        "verified": "TCMB table row 1/12/2026, checked on the official page 2026-11-25; tiers: debt under 30.000 TL, 30.000-180.000 TL, over 180.000 TL. Late interest = contractual + 0.30 points (TCMB Tebliğ 2020/16 art. 5).",
+        "press": "https://tr.euronews.com/2026/11/24/merkez-bankasi-kredi-karti-faizlerini-dusurdu-iste-yeni-oranlar"
+      }
+    ]
+  },
+  "taxes_on_interest": {
+    "bsmv": "0.15",
+    "kkdf": "0.15",
+    "source": "BSMV: Cumhurbaşkanı Kararı 7345, RG 07.07.2023, 32241 (rate on consumer credit interest 15 %). KKDF: Bakanlar Kurulu Kararı 2010/974, RG 28.10.2010, 27743 (15 %).",
+    "verified": "Rates checked on the official decisions 2026-11-25. Both texts say 'tüketici kredileri', not 'kredi kartı'; applying them to individual card interest follows bank practice, no official text says so explicitly. Override in settings if your statement shows otherwise."
+  },
+  "minimum_payment": {
+    "sets": [
+      {
+        "effective_from": "2026-10-01",
+        "tiers": [
+          {
+            "limit_up_to": 10000000,
+            "ratio": "0.20"
+          },
+          {
+            "limit_up_to": null,
+            "ratio": "0.40"
+          }
+        ],
+        "source": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1349",
+        "verified": "BDDK Board Decision 11581 of 2026-10-01 (Yönetmelik art. 22/7), checked on bddk.org.tr 2026-11-25: 20 % up to 100.000 TL limit, 40 % above."
+      },
+      {
+        "effective_from": "2026-11-19",
+        "tiers": [
+          {
+            "limit_up_to": 10000000,
+            "ratio": "0.20"
+          },
+          {
+            "limit_up_to": 20000000,
+            "ratio": "0.30"
+          },
+          {
+            "limit_up_to": null,
+            "ratio": "0.40"
+          }
+        ],
+        "source": "https://www.bddk.org.tr/ (Kurul Kararları); press: https://www.milligazete.com.tr/bddk-kredi-karti-asgari-odeme-oranlari-2026-yuzde-kac-100-bin-tl-limitte-ne-kadar-200-bin-tlde-kac-tl-1",
+        "verified": "BDDK Board Decision 11605 of 2026-11-19 (Yönetmelik art. 22/7), checked on bddk.org.tr 2026-11-25: 20 / 30 / 40 % with 100.000 and 200.000 TL thresholds. The decision gives no start date; the decision date is used."
+      }
+    ],
+    "note": "The ratio applies to the statement total (dönem borcu); the tier is chosen by the card limit. A minimum printed on the statement wins for that statement."
+  },
+  "due_date": {
+    "min_days_after_cut_off": 10,
+    "holiday_rule": "When the due date is a weekend day or public holiday, banks accept payment on the next business day without interest (common bank practice; check your card agreement).",
+    "source": "Banka Kartları ve Kredi Kartları Hakkında Yönetmelik (RG 10.03.2007, 26458), https://www.mevzuat.gov.tr/"
+  },
+  "example_document": "DenizBank public tariff 'Akdi ve Gecikme Faizi Hesaplama Örnekleri': 1.000 TL debt, 20% minimum paid, 800 TL unpaid at 1,98% for 10 + 20 days gives 5,28 + 10,56 = 15,84 TL interest (before BSMV and KKDF)."
+}

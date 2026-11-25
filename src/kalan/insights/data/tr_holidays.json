@@ -1,0 +1,10 @@
+{
+  "checked_on": "2026-11-25",
+  "source": "Ulusal Bayram ve Genel Tatiller Hakkında Kanun (Law 2429), https://www.mevzuat.gov.tr/mevzuatmetin/1.5.2429.pdf; religious holiday dates from the Diyanet calendar, https://vakithesaplama.diyanet.gov.tr/",
+  "note": "Full-day holidays only (MM-DD). Religious holidays move each year; years not listed are treated as having fixed holidays only, and the response says so.",
+  "fixed": ["01-01", "04-23", "05-01", "05-19", "07-15", "08-30", "10-29"],
+  "religious": {
+    "2026": ["2026-03-20", "2026-03-21", "2026-03-22", "2026-05-27", "2026-05-28", "2026-05-29", "2026-05-30"],
+    "2027": ["2027-03-09", "2027-03-10", "2027-03-11", "2027-05-16", "2027-05-17", "2027-05-18", "2027-05-19"]
+  }
+}

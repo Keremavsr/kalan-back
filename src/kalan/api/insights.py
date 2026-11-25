@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, Request
@@ -12,6 +13,7 @@ from kalan.insights.card_fee import find_card_fees, placeholders_kept, refund_le
 from kalan.insights.context import current_schedule, rule_overrides
 from kalan.insights.minimum import latest_statement, minimum_payment_plan
 from kalan.insights.rules import OVERRIDES_KEY, RuleOverrides, card_rules
+from kalan.insights.which_card import card_options
 from kalan.models import Statement
 from kalan.store import Store
 
@@ -114,3 +116,11 @@ def card_fee_draft(request: Request, tx_id: str) -> dict[str, Any]:
     kept = placeholders_kept(text)
     return {"provider": adapter.id, "text": text, "route": built["route"], "placeholders_kept": kept,
             "placeholders_missing": [p for p in built["placeholders"] if p not in kept]}
+
+
+# -- 3. which card today ----------------------------------------------------------------------------
+
+
+@router.get("/which-card")
+def which_card(request: Request, date: date | None = None) -> dict[str, Any]:
+    return card_options(_store(request).all_statements(), today=date)

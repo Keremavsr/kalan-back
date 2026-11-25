@@ -183,3 +183,12 @@ prompt the user copies or sends themselves.
 - `POST /insights/card-fees/{transaction_id}/draft` -> `{"provider","text","route","placeholders_kept":[...],"placeholders_missing":[...]}`:
   sends that prompt to the selected provider and returns its text. Nothing is stored. 409 `no_provider` /
   `provider_unavailable`, 502 `provider_failed`.
+
+### Which card for installments today (`kalan.insights.which_card.card_options`)
+- `GET /insights/which-card?date=YYYY-MM-DD` (default today) -> `{"date","best":Card|null,"cards":[Card],"assumptions":[{"key","text"}]}`,
+  `Card` = `{"bank","product","card_last4","statement_id","cut_off","cut_off_day","due_offset_days","due_date","due_date_effective","shifted_days","interest_free_days","days_until_cut_off","first_installment_month","basis":"printed|projected","stale":false}`.
+  One entry per card (latest statement of each bank + last four). A purchase on `date` is billed on the first cut-off on
+  or after it (the printed next cut-off and due date when the statement has them, else the same day of the month,
+  clipped in short months, and the same cut-off-to-due gap). `due_date_effective` moves a weekend or public holiday to
+  the next business day (`data/tr_holidays.json`); `interest_free_days` counts from `date` to it. Sorted by
+  `interest_free_days`, most first.

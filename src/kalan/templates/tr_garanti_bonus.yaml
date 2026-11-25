@@ -1,0 +1,56 @@
+# Garanti BBVA Bonus credit card statement (Turkey, TRY).
+# Bound to the Python parser src/kalan/parsers/tr_garanti_bonus.py, which reads the table, the
+# summary, the rates and the dates printed in the summary sentence itself (see the reasons in that
+# module). This file declares what a template can express: detection, number and date formats, header
+# labels (label, then value on the next line) and the kind rules. The synthetic fixtures in
+# tests/fixtures/garanti reproduce the layout.
+schema_version: 1
+id: tr_garanti_bonus
+country: TR
+bank: garanti
+product: Bonus
+currency: TRY
+detect:
+  all: [Garanti BBVA, Bonus, Dönem İçi İşlemler, Kalan Borç / Taksit, EKSTRE ÖZETİ]
+amount:
+  preset: comma_decimal
+  credit_signs: ["+", "-"]
+date_format: D MMM YYYY
+
+header:
+  layout: next_line
+  fields:
+    statement_total: [Dönem Borcunuz]
+    minimum_payment: [Min. Ödeme Tutarı]
+    due_date: [Son Ödeme Tarihi]
+    period_end: [Hesap Kesim Tarihi]
+    credit_limit: [Kart Limiti]
+    card: [Kart Numarası]
+
+table:
+  header: [İşlem Tarihi, Dönem İçi İşlemler, Kalan Borç / Taksit, Bonus (TL), Tutar (TL)]
+  end: [Toplam]
+  skip_lines: [bosluk]
+  skip_patterns: ['^ekstre no\b', '^ekstre sayfasi \d+ / \d+$']
+  layout: cells
+  columns: [date, description, amount, installment, points]
+
+installment:
+  stem_remove:
+    - '\b\d{1,2}\s*\.\s*taksit\b'
+
+foreign_pattern: null
+
+kinds:
+  - {match: 'onceki donemden devir', kind: carry_over}
+  - {match: 'odemeniz icin tesekkur', kind: payment, direction: credit}
+  - {match: '(?:^|\W)odeme(?:\W|$)', credit: true, kind: payment, direction: credit}
+  - {match: '^bonus .*(?:alisveris|kullanim)', credit: true, kind: other, direction: credit}
+  - {match: 'nakit avans', kind: cash_advance}
+  - {credit: true, kind: refund, direction: credit}
+  - {match: 'faiz', kind: interest}
+  - {match: 'ucret|aidat|komisyon|masraf|bsmv|kkdf', kind: fee}
+  - {installment: true, kind: installment}
+default_kind: purchase
+credit_kind: refund
+merchant_kinds: [purchase, installment, refund]

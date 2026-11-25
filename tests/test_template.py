@@ -26,7 +26,7 @@ from kalan.template_check import check
 HERE = Path(__file__).parent / "fixtures" / "templates"
 TPL = HERE / "br_bancoexemplo_ouro.yaml"
 TXT = HERE / "br_bancoexemplo_ouro.txt"
-BUILTIN_IDS = ["tr_vakifbank_worldcard", "tr_yapikredi_world"]
+BUILTIN_IDS = ["tr_garanti_bonus", "tr_vakifbank_worldcard", "tr_yapikredi_world"]
 VB_PDF = sorted((Path(__file__).parent / "fixtures" / "vakifbank").glob("vb-*.pdf"))[6]
 
 

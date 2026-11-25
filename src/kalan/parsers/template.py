@@ -403,7 +403,7 @@ class TemplateParser(StatementParser):
                 raise ParseError(f"header field missing: {required}")
 
         period_end = self._date(header["period_end"])
-        rows = self._rows(lines, folded)
+        rows = self._read_rows(text, lines, folded)
         summary = self._summary(lines, folded)
         rates = self._rates(lines, folded)
         card_last4 = self._card_last4(header.get("card"))
@@ -551,6 +551,11 @@ class TemplateParser(StatementParser):
             row.points = cell
             return True
         return False
+
+    def _read_rows(self, text: str, lines: list[str], folded: list[str]) -> list[_Row]:
+        """Rows of the statement; Python subclasses that need the page breaks override this."""
+        del text
+        return self._rows(lines, folded)
 
     def _rows(self, lines: list[str], folded: list[str]) -> list[_Row]:
         table = self._table_lines(lines, folded)

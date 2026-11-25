@@ -17,7 +17,7 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-FIXTURE = sorted((ROOT / "tests" / "fixtures" / "garanti").glob("gb-*.pdf"))[0]
+FIXTURE, SECOND = sorted((ROOT / "tests" / "fixtures" / "garanti").glob("gb-*.pdf"))[:2]
 
 
 def check(cond: bool, what: str) -> None:
@@ -57,6 +57,29 @@ def mcp_tools(exe: str, env: dict[str, str]) -> set[str]:
     return asyncio.run(go())
 
 
+def encrypted_import(exe: str, env: dict[str, str], folder: Path) -> None:
+    """An AES-256 encrypted copy of another fixture: refused without the password, stored with it.
+
+    Needs PyMuPDF in the Python that runs this script (a dev dependency, never bundled); skipped without it.
+    """
+    try:
+        import pymupdf
+    except ImportError:
+        print("skip  encrypted PDF import (PyMuPDF not installed here)")
+        return
+    password = "ornek-9999"  # invented
+    locked = folder / "locked.pdf"
+    with pymupdf.open(str(SECOND)) as doc:
+        locked.write_bytes(doc.tobytes(encryption=pymupdf.PDF_ENCRYPT_AES_256, user_pw=password,
+                                       owner_pw=password + "-owner"))
+    refused = run(exe, "import", str(locked), "--no-ai", "--json", env=env)
+    check(refused.returncode == 1 and json.loads(refused.stdout)["error"]["code"] == "pdf_password_required",
+          "encrypted PDF without password is refused")
+    opened = run(exe, "import", str(locked), "--no-ai", "--password", password, "--json", env=env)
+    check(opened.returncode == 0 and json.loads(opened.stdout)["kind"] == "statement",
+          f"encrypted PDF import with --password {opened.stderr.strip()}")
+
+
 def main(exe: str) -> int:
     exe = str(Path(exe).resolve())
     with tempfile.TemporaryDirectory() as data:
@@ -69,10 +92,13 @@ def main(exe: str) -> int:
         imported = run(exe, "import", str(FIXTURE), "--no-ai", "--json", env=env)
         check(imported.returncode == 0 and json.loads(imported.stdout)["kind"] == "statement",
               f"import a PDF {imported.stderr.strip()}")
-        for cmd in ("statements", "takvim", "ay", "uyarilar", "abonelikler"):
+        diag = run(exe, "teshis", str(FIXTURE), env=env)
+        check(diag.returncode == 0 and "--- shapes" in diag.stdout, f"teshis {diag.stderr.strip()}")
+        encrypted_import(exe, env, Path(data))
+        for cmd in ("statements", "takvim", "ay", "uyarilar", "abonelikler", "kategori"):
             out = run(exe, cmd, "--json", env=env)
             check(out.returncode == 0 and isinstance(json.loads(out.stdout), dict), f"{cmd} --json")
-        check("installment_schedule" in mcp_tools(exe, env), "mcp lists its tools")
+        check({"installment_schedule", "category_rules"} <= mcp_tools(exe, env), "mcp lists its tools")
     print("smoke test passed")
     return 0
 

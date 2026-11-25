@@ -138,3 +138,34 @@ Each plan also has `"source":"statement|manual|import"`. Every schedule item and
 What is sent to the model: only date, description, amount, currency, kind per transaction plus code-computed totals. Never card number, name, address, IBAN, customer number.
 The AI fallback and template draft send the statement's page text after redaction (card number, name, address, IBAN,
 national id, phone, e-mail and long numbers removed), redacted a second time just before sending.
+
+## Insights (task 5b, computed by code)
+Routes under `/insights`. Every function behind them is a plain Python function in `kalan.insights.*` (named per
+route below), so the CLI and an MCP server can call it too. Rates and legal limits come from dated data files in
+`src/kalan/insights/data/` (each value with its source URL and check date); nothing leaves the machine except the AI
+prompt the user copies or sends themselves.
+
+### Rules and overrides
+- `GET /insights/rules` -> `{"rules":{...tr_card_rules.json...},"overrides":{"contractual_monthly","late_monthly","bsmv","kkdf","minimum_ratio"}}`
+  (unset overrides are `null`).
+- `PUT /insights/rules` body: any of the override fields (rates as percent per month `"3.08"`, shares as fractions
+  `"0.15"`) -> same as GET. The body replaces all overrides; `{}` clears them. 422 on a malformed value.
+  Precedence everywhere: override, then what the statement prints (rate capped at the TCMB maximum for the date,
+  printed minimum payment), then the data file.
+
+### If I pay only the minimum (`kalan.insights.minimum.minimum_payment_plan`)
+- `GET /insights/minimum-payment?statement_id=<id>&include_installments=false&cycles=<n>` (default: latest
+  statement, all cycles) ->
+```json
+{"statement_id","currency","start_balance":100000,
+ "minimum_only":{"cycles":38,"paid_off":true,"last_payment_cut_off":"2102-02-15","total_paid":118000,"interest":13846,"bsmv":2077,"kkdf":2077,"cost":18000,"balance_left":0},
+ "pay_in_full":{"total_paid":100000,"cost":0},"extra_cost":18000,
+ "rates":{"contractual_monthly":[{"from_cycle":1,"monthly":"3.08","source":"override|statement|rules","detail":null}],
+          "bsmv":{"value":"0.15","source":"rules","detail":null},"kkdf":{...},"minimum_ratio":{"value":"0.20","source":"rules|statement|override|assumption","detail":"..."}},
+ "assumptions":[{"key":"minimum_paid_on_time","text":"..."}],
+ "cycles":[{"cycle":1,"cut_off":"2099-01-15","balance":100000,"payment":20000,"unpaid":80000,"days":31,"interest":1653,"bsmv":248,"kkdf":248,"added":0,"next_balance":82149}]}
+```
+  Each cycle pays the minimum (the printed one first, then `ratio` x the new total, rounded up); the unpaid part
+  carries contractual interest `unpaid x rate/100 x days/30` for the real days between cut-offs; BSMV and KKDF are
+  shares of the interest. `include_installments=true` adds the scheduled installments of each month (`added`).
+  409 `no_statements`, 404 `statement_not_found`. Stops after 600 cycles (`paid_off:false`, `balance_left`).

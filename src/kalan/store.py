@@ -424,6 +424,13 @@ class Store:
         with self._tx() as con:
             con.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, json.dumps(value)))
 
+    def get_value(self, key: str) -> Any:
+        """A JSON value stored under ``key`` in the settings table (``None`` if unset)."""
+        return self._get_setting(key)
+
+    def put_value(self, key: str, value: Any) -> None:
+        self._put_setting(key, value)
+
     def get_settings(self) -> Settings:
         raw = self._get_setting("app")
         return Settings.model_validate(raw) if raw else Settings()

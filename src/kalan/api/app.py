@@ -23,6 +23,7 @@ from kalan.ai.jobs import JobRunner
 from kalan.alerts import compute_alerts
 from kalan.amounts import month_key
 from kalan.api.errors import ApiError, error_response, install
+from kalan.api.insights import router as insights_router
 from kalan.config import Config
 from kalan.imports import ImportFileError, Mapping, import_plans, parse_import
 from kalan.models import Direction, FixedCost, InstallmentInfo, Locale, ManualInstallment, Statement, Transaction
@@ -155,6 +156,7 @@ def create_app(
     app.state.runner = runner
     app.state.config = config
     install(app)
+    app.include_router(insights_router)
     cors: dict[str, Any] = {
         "allow_origins": config.cors_origins,
         "allow_methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],

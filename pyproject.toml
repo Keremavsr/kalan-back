@@ -16,10 +16,16 @@ dependencies = [
     "pydantic>=2.6",
     "fastapi>=0.110",
     "uvicorn>=0.29",
+    "platformdirs>=4",
+    "python-multipart>=0.0.9",
+    "keyring>=24",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.5", "pymupdf-fonts>=1.0"]
+dev = ["pytest>=8", "ruff>=0.5", "pymupdf-fonts>=1.0", "httpx>=0.27", "httpx2>=2"]
+
+[project.scripts]
+kalan = "kalan.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kalan"]

@@ -46,6 +46,7 @@ def test_comma_decimal(text, minor):
 
 def test_space_thousands():
     assert parse_amount("1 234,56 $", SPACE_COMMA).minor == 123456
+    assert parse_amount("- 6 886,21 $", SPACE_COMMA).signed == -688621
     assert parse_amount("1 234,56", SPACE_COMMA).minor == 123456
 
 

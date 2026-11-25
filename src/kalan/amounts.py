@@ -85,9 +85,7 @@ def _strip_currency(text: str) -> tuple[str, str | None]:
 def parse_amount(text: str, fmt: AmountFormat) -> ParsedAmount:
     """Parse one printed amount into minor units. Raises ``ValueError`` if it does not fit ``fmt``."""
     body, currency = _strip_currency(text)
-    body = body.strip()
-    if fmt.thousands != " ":
-        body = re.sub(r"(?<=[+-])\s+", "", body)
+    body = re.sub(r"^([+-])\s+", r"\1", body.strip())
     m = fmt.regex.match(body)
     if not m:
         raise ValueError(f"not an amount in format {fmt.thousands!r}/{fmt.decimal!r}: {text!r}")

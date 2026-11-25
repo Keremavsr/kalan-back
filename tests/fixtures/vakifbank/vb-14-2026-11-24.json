@@ -1,0 +1,402 @@
+{
+  "synthetic": true,
+  "scenarios": [
+    "last installment (D)"
+  ],
+  "statement": {
+    "bank": "vakifbank",
+    "product": "Worldcard",
+    "parser_id": "tr_vakifbank_worldcard",
+    "card_last4": "0000",
+    "period_start": "2026-10-23",
+    "period_end": "2026-11-24",
+    "due_date": "2026-12-04",
+    "currency": "TRY",
+    "statement_total": 2169040,
+    "minimum_payment": 433900,
+    "credit_limit": 6000000,
+    "next_period_end": "2026-12-23",
+    "next_due_date": "2027-01-02",
+    "page_count": 2,
+    "interest_rates": {
+      "purchase_monthly": "3.11",
+      "purchase_yearly": "37.32",
+      "cash_advance_monthly": "4.02",
+      "cash_advance_yearly": "48.24",
+      "purchase_late_monthly": "3.41",
+      "purchase_late_yearly": "40.92",
+      "cash_advance_late_monthly": "4.32",
+      "cash_advance_late_yearly": "51.84"
+    },
+    "printed_summary": {
+      "previous_balance": 2129914,
+      "period_transactions": 2169040,
+      "interest_and_fees": 0,
+      "payments": 2129914,
+      "statement_total": 2169040
+    }
+  },
+  "transactions": [
+    {
+      "date": "2026-10-22",
+      "description": "ÖNCEKİ DÖNEM HESAP ÖZETİ BAKİYENİZ",
+      "amount": 2129914,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "carry_over",
+      "installment": null,
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-10-25",
+      "description": "TATIL-ORNEK 2/4",
+      "amount": 800000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "installment": {
+        "remaining_count": 2,
+        "remaining_amount_each": 800000,
+        "is_last": false,
+        "plan_key": "E",
+        "index": 2,
+        "total_count": 4,
+        "component": null
+      },
+      "merchant": "TATIL-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-10-27",
+      "description": "ÖDEMENİZ İÇİN TEŞEKKÜRLER",
+      "amount": 2129914,
+      "currency": "TRY",
+      "direction": "credit",
+      "kind": "payment",
+      "installment": null,
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-10-27",
+      "description": "MOBILYA-ORNEK 5.Taksit",
+      "amount": 200000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "installment": {
+        "remaining_count": 7,
+        "remaining_amount_each": 200000,
+        "is_last": false,
+        "plan_key": "C",
+        "index": 5,
+        "total_count": 12,
+        "component": null
+      },
+      "merchant": "MOBILYA-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-10-30",
+      "description": "AKARYAKIT-ORNEK ISTANBUL",
+      "amount": 6208,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "AKARYAKIT-ORNEK ISTANBUL",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-11-01",
+      "description": "KITAPCI-ORNEK",
+      "amount": 188680,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "KITAPCI-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-11-03",
+      "description": "STREAMFLIX",
+      "amount": 17999,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "STREAMFLIX",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-11-04",
+      "description": "BEYAZESYA-ORNEK 3/3",
+      "amount": 630000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "installment": {
+        "remaining_count": 0,
+        "remaining_amount_each": 0,
+        "is_last": true,
+        "plan_key": "D",
+        "index": 3,
+        "total_count": 3,
+        "component": null
+      },
+      "merchant": "BEYAZESYA-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-11-05",
+      "description": "ECZANE-ORNEK",
+      "amount": 116902,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "ECZANE-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-11-06",
+      "description": "MUZIKBOX-ORNEK",
+      "amount": 5999,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "MUZIKBOX-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-11-12",
+      "description": "ECZANE-ORNEK",
+      "amount": 7389,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "ECZANE-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-11-16",
+      "description": "AKARYAKIT-ORNEK ISTANBUL",
+      "amount": 195863,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "AKARYAKIT-ORNEK ISTANBUL",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    }
+  ],
+  "expected_reconciliation": {
+    "status": "ok",
+    "expected": 2169040,
+    "computed": 2169040,
+    "difference": 0,
+    "buckets": {
+      "carry_over": 2129914,
+      "period": 2169040,
+      "interest_and_fees": 0,
+      "payments": 2129914
+    }
+  },
+  "expected_schedule": {
+    "start_month": "2026-12",
+    "months": [
+      {
+        "month": "2026-12",
+        "total": 1000000,
+        "items": [
+          {
+            "plan_key": "C",
+            "description": "MOBILYA-ORNEK",
+            "amount": 200000,
+            "index": 6,
+            "count": 12
+          },
+          {
+            "plan_key": "E",
+            "description": "TATIL-ORNEK",
+            "amount": 800000,
+            "index": 3,
+            "count": 4
+          }
+        ]
+      },
+      {
+        "month": "2027-01",
+        "total": 1000000,
+        "items": [
+          {
+            "plan_key": "C",
+            "description": "MOBILYA-ORNEK",
+            "amount": 200000,
+            "index": 7,
+            "count": 12
+          },
+          {
+            "plan_key": "E",
+            "description": "TATIL-ORNEK",
+            "amount": 800000,
+            "index": 4,
+            "count": 4
+          }
+        ]
+      },
+      {
+        "month": "2027-02",
+        "total": 200000,
+        "items": [
+          {
+            "plan_key": "C",
+            "description": "MOBILYA-ORNEK",
+            "amount": 200000,
+            "index": 8,
+            "count": 12
+          }
+        ]
+      },
+      {
+        "month": "2027-03",
+        "total": 200000,
+        "items": [
+          {
+            "plan_key": "C",
+            "description": "MOBILYA-ORNEK",
+            "amount": 200000,
+            "index": 9,
+            "count": 12
+          }
+        ]
+      },
+      {
+        "month": "2027-04",
+        "total": 200000,
+        "items": [
+          {
+            "plan_key": "C",
+            "description": "MOBILYA-ORNEK",
+            "amount": 200000,
+            "index": 10,
+            "count": 12
+          }
+        ]
+      },
+      {
+        "month": "2027-05",
+        "total": 200000,
+        "items": [
+          {
+            "plan_key": "C",
+            "description": "MOBILYA-ORNEK",
+            "amount": 200000,
+            "index": 11,
+            "count": 12
+          }
+        ]
+      },
+      {
+        "month": "2027-06",
+        "total": 200000,
+        "items": [
+          {
+            "plan_key": "C",
+            "description": "MOBILYA-ORNEK",
+            "amount": 200000,
+            "index": 12,
+            "count": 12
+          }
+        ]
+      },
+      {
+        "month": "2027-07",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2027-08",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2027-09",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2027-10",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2027-11",
+        "total": 0,
+        "items": []
+      }
+    ],
+    "plans": [
+      {
+        "plan_key": "E",
+        "description": "TATIL-ORNEK",
+        "kind": "purchase",
+        "remaining_count": 2,
+        "amount_each": 800000,
+        "ends": "2027-01",
+        "total_remaining": 1600000,
+        "components": null
+      },
+      {
+        "plan_key": "C",
+        "description": "MOBILYA-ORNEK",
+        "kind": "purchase",
+        "remaining_count": 7,
+        "amount_each": 200000,
+        "ends": "2027-06",
+        "total_remaining": 1400000,
+        "components": null
+      }
+    ]
+  }
+}

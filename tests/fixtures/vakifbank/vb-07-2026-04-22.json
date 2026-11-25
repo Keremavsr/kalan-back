@@ -1,0 +1,282 @@
+{
+  "synthetic": true,
+  "scenarios": [
+    "last installment (A)",
+    "foreign currency purchase"
+  ],
+  "statement": {
+    "bank": "vakifbank",
+    "product": "Worldcard",
+    "parser_id": "tr_vakifbank_worldcard",
+    "card_last4": "0000",
+    "period_start": "2026-03-24",
+    "period_end": "2026-04-22",
+    "due_date": "2026-05-02",
+    "currency": "TRY",
+    "statement_total": 961978,
+    "minimum_payment": 192400,
+    "credit_limit": 6000000,
+    "next_period_end": "2026-05-24",
+    "next_due_date": "2026-06-03",
+    "page_count": 2,
+    "interest_rates": {
+      "purchase_monthly": "3.11",
+      "purchase_yearly": "37.32",
+      "cash_advance_monthly": "4.02",
+      "cash_advance_yearly": "48.24",
+      "purchase_late_monthly": "3.41",
+      "purchase_late_yearly": "40.92",
+      "cash_advance_late_monthly": "4.32",
+      "cash_advance_late_yearly": "51.84"
+    },
+    "printed_summary": {
+      "previous_balance": 973054,
+      "period_transactions": 961978,
+      "interest_and_fees": 0,
+      "payments": 973054,
+      "statement_total": 961978
+    }
+  },
+  "transactions": [
+    {
+      "date": "2026-03-23",
+      "description": "ÖNCEKİ DÖNEM HESAP ÖZETİ BAKİYENİZ",
+      "amount": 973054,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "carry_over",
+      "installment": null,
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-03-27",
+      "description": "AKARYAKIT-ORNEK ISTANBUL",
+      "amount": 123316,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "AKARYAKIT-ORNEK ISTANBUL",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-03-28",
+      "description": "FIRIN-ORNEK",
+      "amount": 118528,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "FIRIN-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-03-30",
+      "description": "ELEKTROMARKET-ORNEK 6/6",
+      "amount": 200000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "installment": {
+        "remaining_count": 0,
+        "remaining_amount_each": 0,
+        "is_last": true,
+        "plan_key": "A",
+        "index": 6,
+        "total_count": 6,
+        "component": null
+      },
+      "merchant": "ELEKTROMARKET-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-04-01",
+      "description": "ÖDEMENİZ İÇİN TEŞEKKÜRLER",
+      "amount": 973054,
+      "currency": "TRY",
+      "direction": "credit",
+      "kind": "payment",
+      "installment": null,
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-04-04",
+      "description": "STREAMFLIX",
+      "amount": 14999,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "STREAMFLIX",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-04-06",
+      "description": "STEAMPLAY-ORNEK BELLEVUE US 19.99 USD",
+      "amount": 69000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "STEAMPLAY-ORNEK BELLEVUE US",
+      "source": "statement",
+      "original_amount": 1999,
+      "original_currency": "USD",
+      "points": null
+    },
+    {
+      "date": "2026-04-07",
+      "description": "KAFE-ORNEK",
+      "amount": 110549,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "KAFE-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-04-07",
+      "description": "KAFE-ORNEK",
+      "amount": 157751,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "KAFE-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-04-07",
+      "description": "MUZIKBOX-ORNEK",
+      "amount": 5999,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "MUZIKBOX-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-04-22",
+      "description": "MIGROS-ORNEK",
+      "amount": 161836,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "MIGROS-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    }
+  ],
+  "expected_reconciliation": {
+    "status": "ok",
+    "expected": 961978,
+    "computed": 961978,
+    "difference": 0,
+    "buckets": {
+      "carry_over": 973054,
+      "period": 961978,
+      "interest_and_fees": 0,
+      "payments": 973054
+    }
+  },
+  "expected_schedule": {
+    "start_month": "2026-05",
+    "months": [
+      {
+        "month": "2026-05",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-06",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-07",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-08",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-09",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-10",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-11",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-12",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2027-01",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2027-02",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2027-03",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2027-04",
+        "total": 0,
+        "items": []
+      }
+    ],
+    "plans": []
+  }
+}

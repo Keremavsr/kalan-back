@@ -1,0 +1,345 @@
+{
+  "synthetic": true,
+  "scenarios": [
+    "installment cash advance (CA2, 4x)"
+  ],
+  "statement": {
+    "bank": "vakifbank",
+    "product": "Worldcard",
+    "parser_id": "tr_vakifbank_worldcard",
+    "card_last4": "0000",
+    "period_start": "2026-04-23",
+    "period_end": "2026-05-24",
+    "due_date": "2026-06-03",
+    "currency": "TRY",
+    "statement_total": 636105,
+    "minimum_payment": 127300,
+    "credit_limit": 6000000,
+    "next_period_end": "2026-06-23",
+    "next_due_date": "2026-07-03",
+    "page_count": 2,
+    "interest_rates": {
+      "purchase_monthly": "3.11",
+      "purchase_yearly": "37.32",
+      "cash_advance_monthly": "4.02",
+      "cash_advance_yearly": "48.24",
+      "purchase_late_monthly": "3.41",
+      "purchase_late_yearly": "40.92",
+      "cash_advance_late_monthly": "4.32",
+      "cash_advance_late_yearly": "51.84"
+    },
+    "printed_summary": {
+      "previous_balance": 961978,
+      "period_transactions": 594609,
+      "interest_and_fees": 41496,
+      "payments": 961978,
+      "statement_total": 636105
+    }
+  },
+  "transactions": [
+    {
+      "date": "2026-04-22",
+      "description": "ÖNCEKİ DÖNEM HESAP ÖZETİ BAKİYENİZ",
+      "amount": 961978,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "carry_over",
+      "installment": null,
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-04-27",
+      "description": "ECZANE-ORNEK",
+      "amount": 130135,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "ECZANE-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-05-01",
+      "description": "ÖDEMENİZ İÇİN TEŞEKKÜRLER",
+      "amount": 961978,
+      "currency": "TRY",
+      "direction": "credit",
+      "kind": "payment",
+      "installment": null,
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-05-03",
+      "description": "Mobil-Taksitli Nakit Avans 1.BSMV",
+      "amount": 4788,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "fee",
+      "installment": {
+        "remaining_count": 3,
+        "remaining_amount_each": 2472,
+        "is_last": false,
+        "plan_key": "CA2",
+        "index": 1,
+        "total_count": 4,
+        "component": "bsmv"
+      },
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-05-03",
+      "description": "Mobil-Taksitli Nakit Avans 1.Taksit Anap",
+      "amount": 188420,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "cash_advance",
+      "installment": {
+        "remaining_count": 3,
+        "remaining_amount_each": 203860,
+        "is_last": false,
+        "plan_key": "CA2",
+        "index": 1,
+        "total_count": 4,
+        "component": "principal"
+      },
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-05-03",
+      "description": "Mobil-Taksitli Nakit Avans 1.KKDF",
+      "amount": 4788,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "fee",
+      "installment": {
+        "remaining_count": 3,
+        "remaining_amount_each": 2472,
+        "is_last": false,
+        "plan_key": "CA2",
+        "index": 1,
+        "total_count": 4,
+        "component": "kkdf"
+      },
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-05-03",
+      "description": "Mobil-Taksitli Nakit Avans 1.Vade Farkı",
+      "amount": 31920,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "interest",
+      "installment": {
+        "remaining_count": 3,
+        "remaining_amount_each": 16480,
+        "is_last": false,
+        "plan_key": "CA2",
+        "index": 1,
+        "total_count": 4,
+        "component": "interest"
+      },
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-05-04",
+      "description": "FIRIN-ORNEK",
+      "amount": 221666,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "FIRIN-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-05-04",
+      "description": "STREAMFLIX",
+      "amount": 14999,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "STREAMFLIX",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-05-07",
+      "description": "MUZIKBOX-ORNEK",
+      "amount": 5999,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "MUZIKBOX-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-05-18",
+      "description": "MIGROS-ORNEK",
+      "amount": 33390,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "MIGROS-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    }
+  ],
+  "expected_reconciliation": {
+    "status": "ok",
+    "expected": 594609,
+    "computed": 594609,
+    "difference": 0,
+    "buckets": {
+      "carry_over": 961978,
+      "period": 594609,
+      "interest_and_fees": 41496,
+      "payments": 961978
+    }
+  },
+  "expected_schedule": {
+    "start_month": "2026-06",
+    "months": [
+      {
+        "month": "2026-06",
+        "total": 225284,
+        "items": [
+          {
+            "plan_key": "CA2",
+            "description": "Mobil-Taksitli Nakit Avans",
+            "amount": 225284,
+            "index": 2,
+            "count": 4
+          }
+        ]
+      },
+      {
+        "month": "2026-07",
+        "total": 225284,
+        "items": [
+          {
+            "plan_key": "CA2",
+            "description": "Mobil-Taksitli Nakit Avans",
+            "amount": 225284,
+            "index": 3,
+            "count": 4
+          }
+        ]
+      },
+      {
+        "month": "2026-08",
+        "total": 225284,
+        "items": [
+          {
+            "plan_key": "CA2",
+            "description": "Mobil-Taksitli Nakit Avans",
+            "amount": 225284,
+            "index": 4,
+            "count": 4
+          }
+        ]
+      },
+      {
+        "month": "2026-09",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-10",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-11",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-12",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2027-01",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2027-02",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2027-03",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2027-04",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2027-05",
+        "total": 0,
+        "items": []
+      }
+    ],
+    "plans": [
+      {
+        "plan_key": "CA2",
+        "description": "Mobil-Taksitli Nakit Avans",
+        "kind": "cash_advance",
+        "remaining_count": 3,
+        "amount_each": 225284,
+        "ends": "2026-08",
+        "total_remaining": 675852,
+        "components": {
+          "bsmv": 2472,
+          "principal": 203860,
+          "kkdf": 2472,
+          "interest": 16480
+        }
+      }
+    ]
+  }
+}

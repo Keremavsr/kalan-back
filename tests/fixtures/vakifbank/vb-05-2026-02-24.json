@@ -1,0 +1,400 @@
+{
+  "synthetic": true,
+  "scenarios": [
+    "early payoff of CA1",
+    "last installment (B)",
+    "tax payment"
+  ],
+  "statement": {
+    "bank": "vakifbank",
+    "product": "Worldcard",
+    "parser_id": "tr_vakifbank_worldcard",
+    "card_last4": "0000",
+    "period_start": "2026-01-24",
+    "period_end": "2026-02-24",
+    "due_date": "2026-03-06",
+    "currency": "TRY",
+    "statement_total": 1318898,
+    "minimum_payment": 263800,
+    "credit_limit": 6000000,
+    "next_period_end": "2026-03-23",
+    "next_due_date": "2026-04-02",
+    "page_count": 2,
+    "interest_rates": {
+      "purchase_monthly": "3.11",
+      "purchase_yearly": "37.32",
+      "cash_advance_monthly": "4.02",
+      "cash_advance_yearly": "48.24",
+      "purchase_late_monthly": "3.41",
+      "purchase_late_yearly": "40.92",
+      "cash_advance_late_monthly": "4.32",
+      "cash_advance_late_yearly": "51.84"
+    },
+    "printed_summary": {
+      "previous_balance": 986256,
+      "period_transactions": 1318898,
+      "interest_and_fees": 0,
+      "payments": 986256,
+      "statement_total": 1318898
+    }
+  },
+  "transactions": [
+    {
+      "date": "2026-01-23",
+      "description": "ÖNCEKİ DÖNEM HESAP ÖZETİ BAKİYENİZ",
+      "amount": 986256,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "carry_over",
+      "installment": null,
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-01-30",
+      "description": "ELEKTROMARKET-ORNEK 4/6",
+      "amount": 200000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "installment": {
+        "remaining_count": 2,
+        "remaining_amount_each": 200000,
+        "is_last": false,
+        "plan_key": "A",
+        "index": 4,
+        "total_count": 6,
+        "component": null
+      },
+      "merchant": "ELEKTROMARKET-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-01-31",
+      "description": "ÖDEMENİZ İÇİN TEŞEKKÜRLER",
+      "amount": 986256,
+      "currency": "TRY",
+      "direction": "credit",
+      "kind": "payment",
+      "installment": null,
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-02-02",
+      "description": "TELEFONCU-ORNEK 3/3",
+      "amount": 150000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "installment": {
+        "remaining_count": 0,
+        "remaining_amount_each": 0,
+        "is_last": true,
+        "plan_key": "B",
+        "index": 3,
+        "total_count": 3,
+        "component": null
+      },
+      "merchant": "TELEFONCU-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-02-04",
+      "description": "STREAMFLIX",
+      "amount": 14999,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "STREAMFLIX",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-02-07",
+      "description": "MUZIKBOX-ORNEK",
+      "amount": 5999,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "MUZIKBOX-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-02-08",
+      "description": "FIRIN-ORNEK",
+      "amount": 87615,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "FIRIN-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-02-10",
+      "description": "Mobil-Taksitli Nakit Avans 2.Taksit Anap",
+      "amount": 333202,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "cash_advance",
+      "installment": {
+        "remaining_count": 1,
+        "remaining_amount_each": 344864,
+        "is_last": false,
+        "plan_key": "CA1",
+        "index": 2,
+        "total_count": 3,
+        "component": "principal"
+      },
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-02-10",
+      "description": "Mobil-Taksitli Nakit Avans 3.Taksit Anap",
+      "amount": 344864,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "cash_advance",
+      "installment": {
+        "remaining_count": 0,
+        "remaining_amount_each": 0,
+        "is_last": true,
+        "plan_key": "CA1",
+        "index": 3,
+        "total_count": 3,
+        "component": "principal"
+      },
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-02-10",
+      "description": "Erken Kapama Faiz İptal",
+      "amount": 21000,
+      "currency": "TRY",
+      "direction": "credit",
+      "kind": "refund",
+      "installment": {
+        "remaining_count": 0,
+        "remaining_amount_each": 0,
+        "is_last": true,
+        "plan_key": "CA1",
+        "index": null,
+        "total_count": null,
+        "component": "early_payoff"
+      },
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-02-10",
+      "description": "Erken Kapama BSMV İptal",
+      "amount": 3150,
+      "currency": "TRY",
+      "direction": "credit",
+      "kind": "refund",
+      "installment": {
+        "remaining_count": 0,
+        "remaining_amount_each": 0,
+        "is_last": true,
+        "plan_key": "CA1",
+        "index": null,
+        "total_count": null,
+        "component": "early_payoff"
+      },
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-02-10",
+      "description": "Erken Kapama KKDF İptal",
+      "amount": 3150,
+      "currency": "TRY",
+      "direction": "credit",
+      "kind": "refund",
+      "installment": {
+        "remaining_count": 0,
+        "remaining_amount_each": 0,
+        "is_last": true,
+        "plan_key": "CA1",
+        "index": null,
+        "total_count": null,
+        "component": "early_payoff"
+      },
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-02-11",
+      "description": "Vergi Th/482913/0007",
+      "amount": 135000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "tax",
+      "installment": null,
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2026-02-20",
+      "description": "KAFE-ORNEK",
+      "amount": 74519,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "KAFE-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    }
+  ],
+  "expected_reconciliation": {
+    "status": "ok",
+    "expected": 1318898,
+    "computed": 1318898,
+    "difference": 0,
+    "buckets": {
+      "carry_over": 986256,
+      "period": 1318898,
+      "interest_and_fees": 0,
+      "payments": 986256
+    }
+  },
+  "expected_schedule": {
+    "start_month": "2026-03",
+    "months": [
+      {
+        "month": "2026-03",
+        "total": 200000,
+        "items": [
+          {
+            "plan_key": "A",
+            "description": "ELEKTROMARKET-ORNEK",
+            "amount": 200000,
+            "index": 5,
+            "count": 6
+          }
+        ]
+      },
+      {
+        "month": "2026-04",
+        "total": 200000,
+        "items": [
+          {
+            "plan_key": "A",
+            "description": "ELEKTROMARKET-ORNEK",
+            "amount": 200000,
+            "index": 6,
+            "count": 6
+          }
+        ]
+      },
+      {
+        "month": "2026-05",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-06",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-07",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-08",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-09",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-10",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-11",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-12",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2027-01",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2027-02",
+        "total": 0,
+        "items": []
+      }
+    ],
+    "plans": [
+      {
+        "plan_key": "A",
+        "description": "ELEKTROMARKET-ORNEK",
+        "kind": "purchase",
+        "remaining_count": 2,
+        "amount_each": 200000,
+        "ends": "2026-04",
+        "total_remaining": 400000,
+        "components": null
+      }
+    ]
+  }
+}

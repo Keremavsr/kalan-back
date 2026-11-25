@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.5"]
+dev = ["pytest>=8", "ruff>=0.5", "pymupdf-fonts>=1.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kalan"]

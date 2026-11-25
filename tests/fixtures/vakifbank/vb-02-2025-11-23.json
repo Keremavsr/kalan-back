@@ -1,0 +1,265 @@
+{
+  "synthetic": true,
+  "scenarios": [
+    "plain purchases",
+    "installment start (A, 6x)",
+    "points cells",
+    "subscriptions"
+  ],
+  "statement": {
+    "bank": "vakifbank",
+    "product": "Worldcard",
+    "parser_id": "tr_vakifbank_worldcard",
+    "card_last4": "0000",
+    "period_start": "2025-10-25",
+    "period_end": "2025-11-23",
+    "due_date": "2025-12-03",
+    "currency": "TRY",
+    "statement_total": 590572,
+    "minimum_payment": 118200,
+    "credit_limit": 6000000,
+    "next_period_end": "2025-12-22",
+    "next_due_date": "2026-01-01",
+    "page_count": 2,
+    "interest_rates": {
+      "purchase_monthly": "3.11",
+      "purchase_yearly": "37.32",
+      "cash_advance_monthly": "4.02",
+      "cash_advance_yearly": "48.24",
+      "purchase_late_monthly": "3.41",
+      "purchase_late_yearly": "40.92",
+      "cash_advance_late_monthly": "4.32",
+      "cash_advance_late_yearly": "51.84"
+    },
+    "printed_summary": {
+      "previous_balance": 0,
+      "period_transactions": 590572,
+      "interest_and_fees": 0,
+      "payments": 0,
+      "statement_total": 590572
+    }
+  },
+  "transactions": [
+    {
+      "date": "2025-10-24",
+      "description": "ÖNCEKİ DÖNEM HESAP ÖZETİ BAKİYENİZ",
+      "amount": 0,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "carry_over",
+      "installment": null,
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2025-10-26",
+      "description": "KAFE-ORNEK",
+      "amount": 248911,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "KAFE-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": "7.46"
+    },
+    {
+      "date": "2025-10-31",
+      "description": "ELEKTROMARKET-ORNEK 1/6",
+      "amount": 200000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "installment": {
+        "remaining_count": 5,
+        "remaining_amount_each": 200000,
+        "is_last": false,
+        "plan_key": "A",
+        "index": 1,
+        "total_count": 6,
+        "component": null
+      },
+      "merchant": "ELEKTROMARKET-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2025-11-05",
+      "description": "STREAMFLIX",
+      "amount": 14999,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "STREAMFLIX",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2025-11-08",
+      "description": "MUZIKBOX-ORNEK",
+      "amount": 5999,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "MUZIKBOX-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null
+    },
+    {
+      "date": "2025-11-11",
+      "description": "ECZANE-ORNEK",
+      "amount": 120663,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "installment": null,
+      "merchant": "ECZANE-ORNEK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": "3.61"
+    }
+  ],
+  "expected_reconciliation": {
+    "status": "ok",
+    "expected": 590572,
+    "computed": 590572,
+    "difference": 0,
+    "buckets": {
+      "carry_over": 0,
+      "period": 590572,
+      "interest_and_fees": 0,
+      "payments": 0
+    }
+  },
+  "expected_schedule": {
+    "start_month": "2025-12",
+    "months": [
+      {
+        "month": "2025-12",
+        "total": 200000,
+        "items": [
+          {
+            "plan_key": "A",
+            "description": "ELEKTROMARKET-ORNEK",
+            "amount": 200000,
+            "index": 2,
+            "count": 6
+          }
+        ]
+      },
+      {
+        "month": "2026-01",
+        "total": 200000,
+        "items": [
+          {
+            "plan_key": "A",
+            "description": "ELEKTROMARKET-ORNEK",
+            "amount": 200000,
+            "index": 3,
+            "count": 6
+          }
+        ]
+      },
+      {
+        "month": "2026-02",
+        "total": 200000,
+        "items": [
+          {
+            "plan_key": "A",
+            "description": "ELEKTROMARKET-ORNEK",
+            "amount": 200000,
+            "index": 4,
+            "count": 6
+          }
+        ]
+      },
+      {
+        "month": "2026-03",
+        "total": 200000,
+        "items": [
+          {
+            "plan_key": "A",
+            "description": "ELEKTROMARKET-ORNEK",
+            "amount": 200000,
+            "index": 5,
+            "count": 6
+          }
+        ]
+      },
+      {
+        "month": "2026-04",
+        "total": 200000,
+        "items": [
+          {
+            "plan_key": "A",
+            "description": "ELEKTROMARKET-ORNEK",
+            "amount": 200000,
+            "index": 6,
+            "count": 6
+          }
+        ]
+      },
+      {
+        "month": "2026-05",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-06",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-07",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-08",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-09",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-10",
+        "total": 0,
+        "items": []
+      },
+      {
+        "month": "2026-11",
+        "total": 0,
+        "items": []
+      }
+    ],
+    "plans": [
+      {
+        "plan_key": "A",
+        "description": "ELEKTROMARKET-ORNEK",
+        "kind": "purchase",
+        "remaining_count": 5,
+        "amount_each": 200000,
+        "ends": "2026-04",
+        "total_remaining": 1000000,
+        "components": null
+      }
+    ]
+  }
+}

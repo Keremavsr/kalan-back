@@ -24,11 +24,20 @@ from kalan.alerts import Alert, compute_alerts
 from kalan.amounts import month_key
 from kalan.config import Config
 from kalan.imports import ImportFileError, Mapping, import_plans, parse_import
+from kalan.insights.card_fee import find_card_fees, refund_letter_prompt
+from kalan.insights.context import current_schedule, rule_overrides
+from kalan.insights.early_payoff import payoff, payoff_overview
+from kalan.insights.export import ExportFormat, export
+from kalan.insights.fixed_match import fixed_cost_report, matched_transaction_ids
+from kalan.insights.forecast import backtest, next_statement_forecast
+from kalan.insights.minimum import latest_statement, minimum_payment_plan
+from kalan.insights.share_card import CardLocale, load_card
+from kalan.insights.which_card import card_options
 from kalan.models import Statement, StatementSummary, Transaction
 from kalan.parsers import ParseError, StatementParser, UnknownFormatError, all_parsers, get_parser
 from kalan.reconcile import reconcile
 from kalan.redact import redact
-from kalan.schedule import Schedule, build_schedule
+from kalan.schedule import Schedule
 from kalan.simulate import SimulationIn, simulate
 from kalan.store import DuplicateStatementError, Store
 from kalan.summary import attributed, monthly_summary, subscriptions
@@ -57,6 +66,16 @@ def check_month(value: str | None) -> str | None:
     if value is not None and not MONTH_RE.match(value):
         raise ServiceError("invalid_month", f"not a month (YYYY-MM): {value!r}")
     return value
+
+
+def check_date(value: str | None) -> date | None:
+    """``None`` or a ``YYYY-MM-DD`` date, else :class:`ServiceError` ``invalid_date``."""
+    if value is None:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise ServiceError("invalid_date", f"not a date (YYYY-MM-DD): {value!r}") from None
 
 
 class Kalan:
@@ -202,21 +221,7 @@ class Kalan:
 
     def schedule(self, months: int | None = None) -> Schedule:
         """``GET /installments/schedule``."""
-        store = self.store
-        statements = store.all_statements()
-        cut_off_day = max(statements, key=lambda s: s.period_end).period_end.day if statements else None
-        imported = import_plans(store.import_transactions())
-        result = build_schedule(
-            statements,
-            store.manual_plans(),
-            months=months or store.get_settings().months_ahead,
-            cut_off_day=cut_off_day,
-            imported=imported,
-            fixed_costs=store.fixed_costs(),
-        )
-        if not statements and not store.manual_plans() and not imported:
-            result.currency = store.get_settings().base_currency
-        return result
+        return current_schedule(self.store, months)
 
     def month(self, month: str | None = None) -> dict[str, Any]:
         """``GET /summary/monthly``: spend, credits and categories of one month (default: this month)."""
@@ -258,6 +263,90 @@ class Kalan:
             if limit and len(out) >= limit:
                 break
         return out
+
+    # -- insights (task 5b, ``/insights/...``) ----------------------------------------------------
+
+    def _statement_or_latest(self, statement_id: str | None) -> Statement:
+        if statement_id is not None:
+            return self.statement(statement_id)
+        st = latest_statement(self.store.all_statements())
+        if st is None:
+            raise ServiceError("no_statements", "Upload a statement first.")
+        return st
+
+    def minimum_payment(self, statement_id: str | None = None, include_installments: bool = False,
+                        ) -> dict[str, Any]:
+        """``GET /insights/minimum-payment``: what paying only the minimum costs, cycle by cycle."""
+        st = self._statement_or_latest(statement_id)
+        charges = None
+        if include_installments:
+            charges = {m.month: m.total for m in self.schedule(60).months}
+        return minimum_payment_plan(st, rule_overrides(self.store), charges)
+
+    def card_fees(self) -> list[dict[str, Any]]:
+        """``GET /insights/card-fees``: annual card fee lines, newest first."""
+        return find_card_fees(self.store.all_statements())
+
+    def card_fee_prompt(self, transaction_id: str) -> dict[str, Any]:
+        """``GET /insights/card-fees/{id}/prompt``: the refund-letter prompt for the user's own AI."""
+        fee = next((f for f in self.card_fees() if f["transaction_id"] == transaction_id), None)
+        if fee is None:
+            raise ServiceError("card_fee_not_found", "No annual card fee line with this id.", {"id": transaction_id})
+        return refund_letter_prompt(fee)
+
+    def which_card(self, on: date | None = None) -> dict[str, Any]:
+        """``GET /insights/which-card``."""
+        return card_options(self.store.all_statements(), today=on)
+
+    def share_card(self, locale: CardLocale = "tr", amounts: bool = False) -> dict[str, Any]:
+        """``GET /insights/share-card`` (sentence, month shares and SVG) over the next 12 months."""
+        return load_card(self.schedule(12), locale, amounts)
+
+    def _forecast_inputs(self) -> dict[str, Any]:
+        store = self.store
+        statements, loose, costs = store.all_statements(), store.loose_transactions(), store.fixed_costs()
+        return {
+            "statements": statements, "loose": loose, "currency": store.get_settings().base_currency,
+            "manual_plans": store.manual_plans(), "imported_plans": import_plans(store.import_transactions()),
+            "fixed_costs": costs, "model_recurring": store.model_recurring_ids(),
+            "fixed_tx_ids": matched_transaction_ids(costs, statements, loose),
+        }
+
+    def forecast(self, include_fixed: bool = True) -> dict[str, Any]:
+        """``GET /insights/forecast``: open period, next statement forecast, backtest summary."""
+        return next_statement_forecast(**self._forecast_inputs(), include_fixed=include_fixed)
+
+    def forecast_backtest(self, include_fixed: bool = True) -> dict[str, Any]:
+        """``GET /insights/forecast/backtest``."""
+        return backtest(**self._forecast_inputs(), include_fixed=include_fixed)
+
+    def early_payoff(self, plan_id: str | None = None, month: str | None = None) -> dict[str, Any]:
+        """``GET /insights/early-payoff`` (every open plan) or ``/insights/early-payoff/{plan_id}``."""
+        sched = self.schedule()
+        if plan_id is None:
+            return payoff_overview(sched, self.store.all_statements())
+        if month is not None and month not in {m.month for m in sched.months}:
+            raise ServiceError("month_outside_schedule", "The payoff month must be inside the schedule window.",
+                               {"start_month": sched.start_month, "months": len(sched.months)})
+        result = payoff(sched, plan_id, month)
+        if result is None:
+            raise ServiceError("plan_not_found", "No open installment plan with this id.", {"id": plan_id})
+        return result
+
+    def fixed_cost_matches(self) -> dict[str, Any]:
+        """``GET /insights/fixed-costs/matches``."""
+        store = self.store
+        return fixed_cost_report(store.fixed_costs(), store.all_statements(), store.loose_transactions())
+
+    def export(self, fmt: ExportFormat, what: Literal["transactions", "plans"] = "transactions",
+               currency: str | None = None) -> tuple[str, int]:
+        """``GET /insights/export``: the file text and the number of rows left out."""
+        if what == "plans" and fmt != "csv":
+            raise ServiceError("plans_csv_only",
+                               "Plans export on their own as CSV; hledger and beancount include them.")
+        sched = self.schedule(60)
+        return export(fmt, self.store.all_statements(), self.store.loose_transactions(), sched.plans,
+                      currency or self.store.get_settings().base_currency, what)
 
     # -- AI analysis ------------------------------------------------------------------------------
 

@@ -64,7 +64,8 @@ def test_validation():
 def test_api_simulate_on_stored_statements(client):
     assert upload(client, VB_PDFS[9]).status_code == 201
     sched = client.get("/installments/schedule").json()
-    resp = client.post("/simulate/installment", json={"amount": 120000, "count": 4, "start_month": sched["start_month"]})
+    body_in = {"amount": 120000, "count": 4, "start_month": sched["start_month"]}
+    resp = client.post("/simulate/installment", json=body_in)
     assert resp.status_code == 200, resp.text
     body = resp.json()
     first = body["months"][0]

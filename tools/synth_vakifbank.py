@@ -368,7 +368,7 @@ def simulate() -> list[StatementSim]:
                 amount = rng.randint(2_000, 250_000)
                 points = f"{amount * 3 // 1000 / 100:.2f}" if k == 1 else None
                 rows.append(Row(date=day(rng.randint(0, span)), description=merchant, amount=amount,
-                                points=points, merchant=merchant))
+                                points=points, merchant=merchant.removesuffix(" ISTANBUL")))  # city dropped
             streamflix = 17_999 if k >= 8 else 14_999
             rows.append(Row(date=day(11), description="STREAMFLIX", amount=streamflix, merchant="STREAMFLIX"))
             rows.append(Row(date=day(14), description="MUZIKBOX-ORNEK", amount=5_999, merchant="MUZIKBOX-ORNEK"))
@@ -383,7 +383,7 @@ def simulate() -> list[StatementSim]:
             rows.append(Row(date=day(24), description="KART UYELIK AIDATI", amount=87_500, kind="fee"))
         if k == 6:
             rows.append(Row(date=day(13), description="STEAMPLAY-ORNEK BELLEVUE US 19.99 USD", amount=69_000,
-                            merchant="STEAMPLAY-ORNEK BELLEVUE US", original_amount=1999, original_currency="USD"))
+                            merchant="STEAMPLAY-ORNEK BELLEVUE", original_amount=1999, original_currency="USD"))
         if k == 12:
             interest = round_half_up(100_000 * 0.0311)
             tax = round_half_up(interest * 0.15)

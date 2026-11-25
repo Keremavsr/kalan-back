@@ -119,7 +119,7 @@
       "direction": "debit",
       "kind": "purchase",
       "installment": null,
-      "merchant": "AKARYAKIT-ORNEK ISTANBUL",
+      "merchant": "AKARYAKIT-ORNEK",
       "source": "statement",
       "original_amount": null,
       "original_currency": null,

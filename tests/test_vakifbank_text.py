@@ -143,7 +143,7 @@ def test_rows():
         "refund", "purchase",
     ]
     market = st.transactions[2]
-    assert market.points == "4.12" and market.amount == 25050 and market.merchant == "MARKET-ORNEK ISTANBUL"
+    assert market.points == "4.12" and market.amount == 25050 and market.merchant == "MARKET-ORNEK"
     inst = st.transactions[3].installment
     assert (inst.index, inst.total_count, inst.remaining_count, inst.remaining_amount_each) == (2, 6, 4, 50000)
     assert st.transactions[3].merchant == "ELEKTRO-ORNEK"

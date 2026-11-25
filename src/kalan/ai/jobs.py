@@ -56,6 +56,7 @@ class JobRunner:
             return
         locale = self.store.get_settings().locale
         known = {tx.id for tx in statement.transactions}
+        uncategorised = {tx.id for tx in statement.transactions if tx.category is None}
         prompt = build_prompt(build_payload(statement), locale)
         log.info("job %s: sending %d transactions to %s", job_id, len(known), adapter.id)
 
@@ -68,7 +69,7 @@ class JobRunner:
                 self.store.finish_job(job_id, "failed", f"{adapter.name}: {exc}")
                 return
             try:
-                answer = parse_answer(text, known)
+                answer = parse_answer(text, known, uncategorised)
                 break
             except InvalidModelOutputError as exc:
                 log.warning("job %s: invalid answer from %s (attempt %d)", job_id, adapter.id, attempt)
@@ -88,4 +89,5 @@ class JobRunner:
             self.store.finish_job(job_id, "failed", "the statement was deleted")
             return
         self.store.finish_job(job_id, "done")
-        log.info("job %s done: %d categories applied", job_id, len(answer.categories))
+        log.info("job %s done: %d categories applied (%d covered by rules)", job_id, len(answer.categories),
+                 len(known) - len(uncategorised))

@@ -86,14 +86,17 @@ def build_payload(statement: Statement) -> dict[str, Any]:
             debits += tx.amount
         else:
             credits += tx.amount
-        rows.append({
+        row = {
             "id": tx.id,
             "date": tx.date.isoformat(),
             "description": redact_text(tx.description),
             "amount": money(tx.signed_amount),
             "currency": tx.currency,
             "kind": tx.kind,
-        })
+        }
+        if tx.category is not None:  # set by a rule or by the user; the model leaves it alone
+            row["category"] = tx.category
+        rows.append(row)
     return {
         "totals": {
             "currency": statement.currency,
@@ -126,7 +129,8 @@ def build_prompt(payload: dict[str, Any], locale: str) -> str:
         "Amounts are decimal strings in the given currency; negative amounts are credits.",
         "",
         "Tasks:",
-        "1. Give every transaction exactly one category from this list: " + ", ".join(CATEGORIES) + ".",
+        "1. Give every transaction that has no \"category\" yet exactly one category from this list: "
+        + ", ".join(CATEGORIES) + ". Transactions that already have a category keep it; leave them out.",
         f"2. Write a short commentary in {language} ({locale}): a summary and up to 5 watch items "
         "(unusual charges, fees or interest, cash advances, price increases). Refer to transactions by id.",
         "3. List the ids of transactions that look like recurring subscriptions.",
@@ -165,8 +169,13 @@ def _json_object(text: str) -> Any:
             raise InvalidModelOutputError(f"invalid JSON: {exc.msg}") from None
 
 
-def parse_answer(text: str, known_ids: set[str]) -> ModelAnswer:
-    """Validate the model's text. Ids the statement does not contain are dropped."""
+def parse_answer(text: str, known_ids: set[str], to_categorise: set[str] | None = None) -> ModelAnswer:
+    """Validate the model's text. Ids the statement does not contain are dropped.
+
+    ``to_categorise`` (default: every known id) are the transactions no rule covered; only their categories are
+    kept, and the answer must categorise at least one of them.
+    """
+    wanted = known_ids if to_categorise is None else to_categorise & known_ids
     data = _json_object(text)
     try:
         answer = ModelAnswer.model_validate(data)
@@ -174,8 +183,8 @@ def parse_answer(text: str, known_ids: set[str]) -> ModelAnswer:
         first = exc.errors()[0]
         where = ".".join(str(p) for p in first["loc"])
         raise InvalidModelOutputError(f"schema mismatch at {where}: {first['msg']}") from None
-    categories = {k: v for k, v in answer.categories.items() if k in known_ids}
-    if known_ids and not categories:
+    categories = {k: v for k, v in answer.categories.items() if k in wanted}
+    if wanted and not categories:
         raise InvalidModelOutputError("no transaction id of the statement was categorised")
     for item in answer.commentary.watch_items:
         item.transaction_ids = [i for i in item.transaction_ids if i in known_ids]

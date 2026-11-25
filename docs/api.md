@@ -1,7 +1,8 @@
 # kalan API contract v0.3.0
 
 Changes from v0.2.0: encrypted PDFs (`password` / `remember_password` on `POST /statements`, `/pdf-passwords`);
-save gate (422 `save_blocked`, `review` on statements, see "Save gate"); `POST /diagnose`. Every v0.2.0 route and field is unchanged;
+save gate (422 `save_blocked`, `review` on statements, see "Save gate"); `POST /diagnose`; rule-based categories and
+cleaner `merchant` names (`/category-rules`, see "Categories"). Every v0.2.0 route and field is unchanged;
 `needs_review` is now also set by soft save-gate findings, not only by the AI fallback.
 
 Changes from v0.1.1: AI fallback reader and `needs_review` on statements, `POST /statements/{id}/template-draft`
@@ -112,6 +113,26 @@ after this statement, `null` when the bank does not print it.
 `original_amount` / `original_currency`: the foreign amount of a charge made in another currency. `points`: the
 loyalty points cell as printed. `detail`: sub-lines the bank prints under a row (bill reference, installment note,
 exchange note), joined with ` | `, redacted like the rest of the text; never rows of their own.
+
+## Categories (v0.3.0)
+`merchant` is the cleaned merchant name: payment-processor prefixes (`IYZICO*`, `PAYTR *`, `PAYPAL *` ...), `*`,
+store and terminal numbers, and trailing country codes, cities and districts are removed
+(`IYZICO*ORNEK KAFE 000123 ISTANBUL TR` -> `ORNEK KAFE`). Installment plan ids do not depend on it.
+
+Uploaded statements and imports get a `category` from rules before they are stored: the user's rules first, then
+the transaction kind (`fee`/`interest` -> `fees`, `tax` -> `taxes`, `cash_advance` -> `cash`, `payment` ->
+`transfers`, `carry_over` -> `other`), then the built-in phrases (`src/kalan/categories.yaml`, Turkish merchants
+first). Phrases match whole words of the merchant name after folding (case, diacritics, Turkish I); the longest
+match wins. What no rule covers stays `null`; `POST /statements/{id}/analyze` asks the model only for those and
+never overwrites a category a rule set.
+- `GET /category-rules` -> `{"items":[{"id":"cr_01","pattern":"ORNEK KAFE","category":"dining","created_at":"..."}],
+  "categories":["groceries","dining",...]}` (user rules, oldest first; `categories` is the allowed list).
+- `POST /category-rules` body `{"pattern":"ORNEK KAFE","category":"dining","apply":true}` -> 201
+  `{"rule":{...},"applied":3}`. With `apply` (default) every stored statement and import row the user did not
+  categorise by hand is recategorised by the user rules; `applied` counts changed rows. 409 `duplicate_rule`
+  (`details.rule_id`) for the same pattern after folding, 422 `invalid_pattern` (no letters or digits), 422
+  `validation_error` for a category outside the list.
+- `DELETE /category-rules/{id}` -> 204 (categories it set stay), 404 `not_found`.
 
 ## Diagnosis (v0.3.0)
 - `POST /diagnose` multipart `file` (PDF, max 10 MB), optional form field `password` -> 200

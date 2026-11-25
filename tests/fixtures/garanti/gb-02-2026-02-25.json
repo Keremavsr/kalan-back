@@ -107,7 +107,7 @@
       "currency": "TRY",
       "direction": "debit",
       "kind": "purchase",
-      "merchant": "ORNEKPAY *ORNEKCARSI",
+      "merchant": "ORNEKPAY ORNEKCARSI",
       "source": "statement",
       "original_amount": null,
       "original_currency": null,

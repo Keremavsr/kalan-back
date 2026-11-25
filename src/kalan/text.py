@@ -34,9 +34,22 @@ _INSTALLMENT_MARKERS = re.compile(
 _FOREIGN_TAIL = re.compile(r"\s+\d[\d,.]*\s+[A-Z]{3}$")
 
 
-def normalize_merchant(description: str) -> str:
-    """Merchant key: description without installment markers or foreign-amount tail, upper case."""
+def merchant_key(description: str) -> str:
+    """Description without installment markers or foreign-amount tail, upper case.
+
+    The stem of installment plan ids (AI fallback, imports): keep it stable, stored plan ids depend on it.
+    """
     text = _FOREIGN_TAIL.sub("", description.strip())
     text = _INSTALLMENT_MARKERS.sub(" ", text)
     text = _SPACE_RE.sub(" ", text).strip(" -/")
     return text.upper()
+
+
+def normalize_merchant(description: str) -> str:
+    """Merchant name: :func:`merchant_key` without processor prefixes, ``*``, store numbers, city and country.
+
+    ``IYZICO*ORNEK KAFE 000123 ISTANBUL TR`` -> ``ORNEK KAFE``; see :mod:`kalan.categories`.
+    """
+    from kalan.categories import clean_merchant  # late: kalan.categories imports this module
+
+    return clean_merchant(merchant_key(description))

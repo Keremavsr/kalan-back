@@ -87,3 +87,9 @@ def memory_keyring(monkeypatch) -> MemoryKeyring:
     ring = MemoryKeyring()
     monkeypatch.setattr("kalan.pdf_passwords._keyring", lambda: ring)
     return ring
+
+
+@pytest.fixture
+def rules_off(monkeypatch):
+    """Statements arrive uncategorised, as before rule-based categories: tests of the AI path alone."""
+    monkeypatch.setattr("kalan.categories.apply", lambda transactions, user_rules=(): list(transactions))

@@ -1,0 +1,81 @@
+# Built-in merchant clean-up and category rules (Turkish merchants first). Edit freely and send a pull request.
+#
+# merchant:   how a printed description becomes a merchant name (kalan.categories.normalize_merchant).
+#   processors: payment-processor prefixes printed before the real shop, as "IYZICO*SHOP" or "PAYTR *SHOP".
+#   tails:      words dropped from the end: country codes, cities, districts (several in a row are dropped).
+# rules:      category -> phrases. A phrase matches the merchant name as whole words, after fold(): lower case,
+#             no diacritics, Turkish I variants unified ("sok market" matches "ŞOK MARKET"). When several phrases
+#             match, the longest wins ("getir yemek" beats "getir"). Categories must be one of kalan's list.
+# kinds:      transaction kind -> category, used before the phrases (fees, interest, taxes, cash advances).
+# User rules (POST /category-rules) come before all of this.
+
+version: 1
+
+merchant:
+  processors: [iyzico, iyz, paytr, payu, param, parampos, sipay, craftgate, moka, papara, paycell, ininal, lidio,
+               esnekpos, paynet, vepara, hepsipay, paypal, pp, stripe, paddle, fastspring, 2co, sq, sumup, tst]
+  tails: [
+    tr, tur, turkey, turkiye, tc, us, usa, gb, gbr, uk, ie, irl, nl, nld, lu, lux, de, deu, fr, cy, ae, are,
+    adana, adiyaman, afyon, afyonkarahisar, agri, aksaray, amasya, ankara, antalya, ardahan, artvin, aydin,
+    balikesir, bartin, batman, bayburt, bilecik, bingol, bitlis, bolu, burdur, bursa, canakkale, cankiri, corum,
+    denizli, diyarbakir, duzce, edirne, elazig, erzincan, erzurum, eskisehir, gaziantep, giresun, gumushane,
+    hakkari, hatay, antakya, igdir, isparta, istanbul, ist, izmir, kahramanmaras, maras, karabuk, karaman, kars,
+    kastamonu, kayseri, kilis, kirikkale, kirklareli, kirsehir, kocaeli, izmit, konya, kutahya, malatya, manisa,
+    mardin, mersin, icel, mugla, bodrum, fethiye, marmaris, mus, nevsehir, nigde, ordu, osmaniye, rize, sakarya,
+    adapazari, samsun, sanliurfa, urfa, siirt, sinop, sirnak, sivas, tekirdag, tokat, trabzon, tunceli, usak, van,
+    yalova, yozgat, zonguldak,
+    kadikoy, besiktas, sisli, uskudar, atasehir, bakirkoy, beyoglu, maltepe, kartal, pendik, umraniye, sariyer,
+    beylikduzu, esenyurt, bagcilar, fatih, sancaktepe, cekmekoy, kagithane, eyup, eyupsultan, basaksehir,
+    avcilar, kucukcekmece, bahcelievler, gaziosmanpasa, zeytinburnu, levent, maslak, merter, mecidiyekoy,
+    cankaya, kecioren, yenimahalle, etimesgut, sincan, konak, bornova, karsiyaka, buca, nilufer, osmangazi,
+    muratpasa, konyaalti, seyhan, merkez,
+    london, dublin, amsterdam, luxembourg, berlin, paris, nicosia, dubai, internet, online]
+
+kinds:
+  fee: fees
+  interest: fees
+  tax: taxes
+  cash_advance: cash
+  payment: transfers
+  carry_over: other
+
+rules:
+  groceries: [migros, migros jet, macrocenter, carrefoursa, carrefour, a101, bim, sok market, sok marketler,
+              file market, hakmar, onur market, metro grosmarket, bizim toptan, kipa, happy center, mopas,
+              tarim kredi, getir, getir buyuk, istegelsin, yemeksepeti market, banabi, market, bakkal, kasap,
+              manav, sarkuteri]
+  dining: [yemeksepeti, getir yemek, trendyol yemek, trendyol go, starbucks, kahve dunyasi, espressolab,
+           caffe nero, gloria jeans, simit sarayi, burger king, mcdonalds, kfc, popeyes, dominos, pizza hut,
+           little caesars, sbarro, usta donerci, baydoner, tavuk dunyasi, big chefs, cafe, kafe, kahve,
+           restoran, restaurant, lokanta, kebap, kebab, doner, pide, pastane, pastanesi, firin, borek, coffee]
+  fuel: [shell, opet, petrol ofisi, po petrol, bp, totalenergies, aytemiz, alpet, kadoil, lukoil,
+         moil, gulf, akaryakit, petrol]
+  transport: [bitaksi, uber, marti, binbin, istanbulkart, belbim, iett, metro istanbul, ego, eshot,
+              izban, marmaray, hgs, ogs, kgm, otopark, ispark, taksi, otogar, tcdd]
+  travel: [turk hava yollari, thy, pegasus, ajet, anadolujet, sunexpress, obilet, enuygun, tatilbudur,
+           jolly, etstur, setur, booking.com, airbnb, expedia, hotels.com, otel, hotel, havalimani, airport,
+           dhmi, tav]
+  telecom: [turkcell, vodafone, turk telekom, ttnet, superonline, turknet, millenicom, d-smart, kablonet]
+  utilities: [enerjisa, ck enerji, ck bogazici, uedas, aydem, gediz, igdas, baskentgaz, izmirgaz, aksagaz,
+              iski, aski, izsu, buski, elektrik, dogalgaz, su idaresi]
+  subscriptions: [netflix, spotify, youtube, youtube premium, google one, google storage, disney, disney plus,
+                  blutv, exxen, tabii, amazon prime, prime video, apple.com/bill, itunes, icloud,
+                  apple music, chatgpt, openai, anthropic, claude.ai, microsoft, xbox game pass, adobe, canva,
+                  dropbox, notion, github, patreon, duolingo, storytel]
+  shopping: [trendyol, hepsiburada, amazon, n11, ciceksepeti, pazarama, aliexpress, temu, gittigidiyor, ebay,
+             watsons, gratis, rossmann, sephora, d&r, idefix, kitapyurdu, toyzz, avm]
+  electronics: [teknosa, mediamarkt, vatan bilgisayar, apple store, samsung, xiaomi, huawei, arcelik, vestel,
+                beko, bosch, troyestore, gurgencler, itopya, elektronik]
+  clothing: [lc waikiki, koton, defacto, mavi, colins, ltb, zara, bershka, pull and bear, stradivarius, h&m,
+             mango, boyner, beymen, vakko, network, ipekyol, flo, instreet, superstep, deichmann, ayakkabi dunyasi,
+             nike, adidas, puma, skechers, decathlon, giyim, tekstil]
+  home: [ikea, koctas, bauhaus, tekzen, english home, madame coco, karaca, pasabahce, bellona, istikbal,
+         dogtas, mudo, evidea, mobilya, hirdavat, nalbur]
+  health: [eczane, eczanesi, eczacilik, hastane, hastanesi, acibadem, medical park, memorial, liv hospital,
+           florence nightingale, medicana, dentist, dis klinigi, klinik, poliklinik, optik, laboratuvar]
+  education: [okul, kolej, universite, universitesi, dershane, kurs, udemy, coursera, egitim, kirtasiye]
+  entertainment: [sinema, cinemaximum, paribu cineverse, biletix, passo, biletinial, steam, playstation,
+                  epic games, nintendo, riot games, tiyatro, konser, muze, bowling]
+  insurance: [sigorta, axa, allianz, anadolu sigorta, aksigorta, mapfre, sompo, hdi, turkiye sigorta]
+  taxes: [vergi, gib, mtv, harc, belediye, e-devlet, sgk]
+  transfers: [havale, eft, fast, para transferi]

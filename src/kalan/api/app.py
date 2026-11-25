@@ -17,10 +17,11 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 import kalan
-from kalan import gate, pdf_passwords
+from kalan import categories, gate, pdf_passwords
 from kalan.ai import reader
 from kalan.ai.adapters import DEFAULT_TIMEOUT, Adapter, AdapterError, ProviderRegistry
 from kalan.ai.jobs import JobRunner
+from kalan.ai.prompt import CATEGORIES, Category
 from kalan.alerts import compute_alerts
 from kalan.amounts import month_key
 from kalan.api.errors import ApiError, error_response, install
@@ -34,7 +35,7 @@ from kalan.pipeline import parse_text
 from kalan.redact import redact
 from kalan.schedule import Schedule, build_schedule
 from kalan.simulate import SimulationIn, simulate
-from kalan.store import DuplicateStatementError, Settings, Store
+from kalan.store import DuplicateRuleError, DuplicateStatementError, Settings, Store
 from kalan.summary import attributed, monthly_summary, subscriptions
 from kalan.text import normalize_merchant
 
@@ -71,6 +72,12 @@ class FixedCostIn(_Body):
     start: str = Field(pattern=MONTH_PATTERN)
     end: str | None = Field(default=None, pattern=MONTH_PATTERN)
     category: str | None = Field(default=None, max_length=40)
+
+
+class CategoryRuleIn(_Body):
+    pattern: str = Field(min_length=1, max_length=80, description="Merchant phrase, matched as whole words")
+    category: Category
+    apply: bool = Field(default=True, description="Also recategorise stored rows not categorised by hand")
 
 
 class PdfPasswordIn(_Body):
@@ -287,6 +294,9 @@ def create_app(
             log.info("upload rejected: %s", type(exc).__name__)
             raise ApiError(422, "invalid_pdf", "The PDF could not be opened.") from None
 
+    def user_rules() -> list[categories.Rule]:
+        return [categories.Rule.of(r["pattern"], r["category"]) for r in store.category_rules()]
+
     def save_gate(st: Statement) -> Statement:
         """Run :func:`kalan.gate.check`: hard findings block the save, soft ones mark it for review."""
         issues = gate.check(st, store.all_statements())
@@ -335,6 +345,7 @@ def create_app(
             log.info("upload rejected: %s", type(exc).__name__)
             raise ApiError(422, "parse_error", "The statement was recognised but could not be read.") from None
         st = save_gate(st)
+        st = st.model_copy(update={"transactions": categories.apply(st.transactions, user_rules())})
         try:
             saved = store.add_statement(st, redacted_text=kept_text)
         except DuplicateStatementError as dup:
@@ -352,6 +363,42 @@ def create_app(
                     log.info("pdf password not remembered: no keyring")
             response.headers[PASSWORD_REMEMBERED_HEADER] = "true" if remembered else "false"
         return saved.model_dump(mode="json")
+
+    # -- category rules ---------------------------------------------------------------------------
+
+    @app.get("/category-rules")
+    def list_category_rules() -> dict[str, Any]:
+        return {"items": store.category_rules(), "categories": list(CATEGORIES)}
+
+    @app.post("/category-rules", status_code=201)
+    def post_category_rule(body: CategoryRuleIn) -> dict[str, Any]:
+        try:
+            rule = categories.Rule.of(body.pattern, body.category)
+        except ValueError:
+            raise ApiError(422, "invalid_pattern", "The pattern has no letters or digits.") from None
+        try:
+            saved = store.add_category_rule(f"cr_{uuid.uuid4().hex[:12]}", body.pattern.strip(), rule.folded,
+                                            body.category)
+        except DuplicateRuleError as dup:
+            raise ApiError(409, "duplicate_rule", "A rule with this pattern exists.",
+                           {"rule_id": dup.existing_id}) from None
+        applied = 0
+        if body.apply:
+            rules = user_rules()
+
+            def pick(tx: Transaction) -> str | None:
+                found = categories.categorize(tx, rules)
+                return found[0] if found is not None and found[1] == "user_rule" else None
+
+            applied = store.recategorize(pick)
+        log.info("category rule %s added, %d rows recategorised", saved["id"], applied)
+        return {"rule": saved, "applied": applied}
+
+    @app.delete("/category-rules/{rule_id}", status_code=204)
+    def delete_category_rule(rule_id: str) -> Response:
+        if not store.delete_category_rule(rule_id):
+            raise ApiError(404, "not_found", "No such category rule.")
+        return Response(status_code=204)
 
     # -- anonymous diagnosis ------------------------------------------------------------------------
 
@@ -511,7 +558,8 @@ def create_app(
             raise ApiError(422, "import_unreadable", f"The file could not be imported: {exc}") from None
         import_id = StatementParser.stable_id("im", uuid.uuid4().hex)
         meta = {"currency": result.currency, "detected": result.detected, "months": result.months}
-        imported, skipped = store.add_import(import_id, result.format, meta, result.transactions)
+        rows = categories.apply(result.transactions, user_rules())
+        imported, skipped = store.add_import(import_id, result.format, meta, rows)
         log.info("import %s (%s): %d rows, %d skipped as duplicates", import_id, result.format, imported, skipped)
         stored = {t.id for t in store.import_transactions(import_id)}
         return {

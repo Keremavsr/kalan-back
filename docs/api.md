@@ -192,3 +192,11 @@ prompt the user copies or sends themselves.
   clipped in short months, and the same cut-off-to-due gap). `due_date_effective` moves a weekend or public holiday to
   the next business day (`data/tr_holidays.json`); `interest_free_days` counts from `date` to it. Sorted by
   `interest_free_days`, most first.
+
+### Shareable installment load card (`kalan.insights.share_card.load_card`, `load_svg`)
+- `GET /insights/share-card?locale=tr|en&amounts=false` -> `{"locale","show_amounts":false,"sentence":"...","months":[{"month":"2099-01","share":"1.00"}],"svg":"<svg ...>"}`
+  over the next 12 schedule months (same window as `GET /installments/schedule?months=12`). `share` is the month's
+  installment total relative to the busiest month. With `amounts=true` each month also has `total`, the response has
+  `currency`, and the sentence and bars show rounded amounts. The card never contains merchant names, plan
+  descriptions, bank names or card numbers; the SVG uses system fonts only and loads nothing from the network.
+- `GET /insights/share-card.svg?locale=tr|en&amounts=false` -> the same SVG as `image/svg+xml` (1200 x 630).

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Query, Request, Response
 
 from kalan.ai.adapters import DEFAULT_TIMEOUT, Adapter, AdapterError
 from kalan.api.errors import ApiError
@@ -13,6 +13,7 @@ from kalan.insights.card_fee import find_card_fees, placeholders_kept, refund_le
 from kalan.insights.context import current_schedule, rule_overrides
 from kalan.insights.minimum import latest_statement, minimum_payment_plan
 from kalan.insights.rules import OVERRIDES_KEY, RuleOverrides, card_rules
+from kalan.insights.share_card import CardLocale, load_card, load_svg
 from kalan.insights.which_card import card_options
 from kalan.models import Statement
 from kalan.store import Store
@@ -124,3 +125,17 @@ def card_fee_draft(request: Request, tx_id: str) -> dict[str, Any]:
 @router.get("/which-card")
 def which_card(request: Request, date: date | None = None) -> dict[str, Any]:
     return card_options(_store(request).all_statements(), today=date)
+
+
+# -- 4. shareable installment load card -------------------------------------------------------------
+
+
+@router.get("/share-card")
+def share_card(request: Request, locale: CardLocale = "tr", amounts: bool = False) -> dict[str, Any]:
+    return load_card(current_schedule(_store(request), 12), locale, amounts)
+
+
+@router.get("/share-card.svg")
+def share_card_svg(request: Request, locale: CardLocale = "tr", amounts: bool = False) -> Response:
+    svg = load_svg(current_schedule(_store(request), 12), locale, amounts)
+    return Response(svg, media_type="image/svg+xml")

@@ -41,7 +41,7 @@ Errors: `{"error": {"code": "string_code", "message": "human text", "details": {
 ```json
 {"id":"st_01","bank":"vakifbank","product":"Worldcard","card_last4":"0000","period_start":"2026-08-26","period_end":"2026-09-25",
  "due_date":"2026-10-05","currency":"TRY","statement_total":0,"minimum_payment":0,
- "reconciliation":{"status":"ok|mismatch","expected":1047844,"computed":1047844,"difference":0},
+ "reconciliation":{"status":"ok|mismatch","expected":123456,"computed":123456,"difference":0},
  "analysis_status":"none|pending|done|failed","needs_review":false}
 ```
 `Statement` = `StatementSummary` + `"transactions":[Transaction]` + `"interest_rates":{"purchase_monthly":"3.25", ...}` (strings, as printed)
@@ -49,13 +49,27 @@ Errors: `{"error": {"code": "string_code", "message": "human text", "details": {
 `next_period_end`, `next_due_date`, `printed_summary`, `page_count`).
 `currency` is any ISO 4217 code; minor units follow ISO 4217 (JPY 0 decimals, KWD 3, most currencies 2).
 
+`printed_summary` (the bank's own totals block, signed as debt: positive = owed) or `null`:
+```json
+{"previous_balance":123456,"period_transactions":999999,"interest_and_fees":1234|null,"payments":123456,
+ "statement_total":999999,"remaining_installments":456789|null}
+```
+`interest_and_fees` is `null` when the bank prints no separate fee line and counts interest and fees inside
+`period_transactions` (Yapı Kredi). `remaining_installments` is the printed total of installments still to come
+after this statement, `null` when the bank does not print it.
+
 `Transaction`:
 ```json
-{"id":"tx_01","date":"2026-09-13","description":"Mobil-Taksitli Nakit Avans 1.Taksit Anap","amount":343978,"currency":"TRY",
+{"id":"tx_01","date":"2099-01-15","description":"ORNEK MARKET 1.Taksit","amount":123456,"currency":"TRY",
  "direction":"debit|credit","kind":"purchase|installment|cash_advance|fee|tax|interest|payment|refund|carry_over|other",
- "installment":{"remaining_count":2,"remaining_amount_each":373011,"is_last":false,"plan_id":"pl_01"}|null,
- "category":"groceries|null","merchant":"normalized merchant or null","source":"statement|manual|import"}
+ "installment":{"remaining_count":2,"remaining_amount_each":123456,"is_last":false,"plan_id":"pl_01",
+                "index":1|null,"total_count":3|null,"component":"principal|bsmv|kkdf|interest|early_payoff|null"}|null,
+ "category":"groceries|null","merchant":"normalized merchant or null","source":"statement|manual|import",
+ "original_amount":1234|null,"original_currency":"USD|null","points":"12,34|null","detail":"text|null"}
 ```
+`original_amount` / `original_currency`: the foreign amount of a charge made in another currency. `points`: the
+loyalty points cell as printed. `detail`: sub-lines the bank prints under a row (bill reference, installment note,
+exchange note), joined with ` | `, redacted like the rest of the text; never rows of their own.
 
 ## Imports (v0.2.0)
 - `POST /imports` multipart `file` (CSV, OFX/QFX or QIF, max 10 MB), optional form fields `format` (`csv|ofx|qif`,

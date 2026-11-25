@@ -628,7 +628,9 @@ def main(out_dir: Path = OUT_DIR) -> list[Path]:
         pdf = out_dir / f"{name}.pdf"
         render(lay, pdf, font)
         data = truth(sim, len(lay.pages))
-        (out_dir / f"{name}.json").write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        (out_dir / f"{name}.json").write_text(
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"
+        )
         written.append(pdf)
     return written
 

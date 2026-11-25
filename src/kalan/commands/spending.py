@@ -3,18 +3,9 @@
 from __future__ import annotations
 
 import argparse
-import re
 
 from kalan.commands import Out, arg, command, money_for, percent, shorten, table
-from kalan.service import Kalan, ServiceError
-
-MONTH_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
-
-
-def check_month(value: str | None) -> str | None:
-    if value is not None and not MONTH_RE.match(value):
-        raise ServiceError("invalid_month", f"not a month (YYYY-MM): {value!r}")
-    return value
+from kalan.service import Kalan, check_month
 
 
 @command("ay", "month", order=40, help="spending of one month by category", args=[

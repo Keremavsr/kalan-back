@@ -151,6 +151,7 @@ def build_parser() -> tuple[argparse.ArgumentParser, dict]:
                          help=f"port (default {DEFAULT_PORT}; 0 picks a free port)")
     p_serve.add_argument("--print-port", action="store_true",
                          help='print one JSON line {"event":"ready","port":N} to stdout when listening')
+    sub.add_parser("mcp", help="read-only MCP server on stdio, for Claude Code, Codex or Gemini CLI")
     p_tpl = sub.add_parser("template", help="work with declarative bank templates")
     tsub = p_tpl.add_subparsers(dest="template_command", required=True)
     p_check = tsub.add_parser("check", help="validate a template and run it on one statement")
@@ -189,6 +190,10 @@ def main(argv: list[str] | None = None, *, kalan=None) -> int:
         for line in lines:
             print(line)
         return code
+    if args.command == "mcp":
+        from kalan.mcp_server import run
+
+        return run()
     if args.command == "serve":
         if not 0 <= args.port <= 65535:
             parser.error("--port must be between 0 and 65535")

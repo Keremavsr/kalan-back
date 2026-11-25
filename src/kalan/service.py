@@ -10,6 +10,7 @@ message without statement content.
 
 from __future__ import annotations
 
+import re
 import time
 import uuid
 from datetime import date
@@ -34,6 +35,7 @@ from kalan.summary import attributed, monthly_summary, subscriptions
 from kalan.text import fold
 
 PDF_MAGIC = b"%PDF-"
+MONTH_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 ImportKind = Literal["pdf", "txt", "csv", "ofx", "qif"]
 SUFFIX_KIND: dict[str, ImportKind] = {".pdf": "pdf", ".txt": "txt", ".csv": "csv", ".ofx": "ofx", ".qfx": "ofx",
                                       ".qif": "qif"}
@@ -48,6 +50,13 @@ class ServiceError(Exception):
 
     def as_dict(self) -> dict[str, Any]:
         return {"error": {"code": self.code, "message": self.message, "details": self.details}}
+
+
+def check_month(value: str | None) -> str | None:
+    """``None`` or a ``YYYY-MM`` month, else :class:`ServiceError` ``invalid_month``."""
+    if value is not None and not MONTH_RE.match(value):
+        raise ServiceError("invalid_month", f"not a month (YYYY-MM): {value!r}")
+    return value
 
 
 class Kalan:

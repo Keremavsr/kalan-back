@@ -85,8 +85,8 @@ findings in `review`. `GateIssue` = `{"code","severity":"hard|soft","message","d
 | `rows_after_cut_off` | soft | Rows dated more than 3 days after the cut-off. `count` |
 | `minimum_above_total` | soft | Minimum payment larger than the statement total. |
 | `installment_counter` | soft | A row's installment number, plan length and remaining count disagree. `transaction_ids` |
-| `installment_sequence` | soft | A plan's installment number does not follow the previous statement's (same card, ended at most 45 days before). `plan_ids`, `previous_statement_id` |
-| `installment_missing` | soft | A plan still running in the previous statement is absent (early payoff, or a row not read). `plan_ids`, `previous_statement_id` |
+| `installment_sequence` | soft | A plan's installment number does not follow the previous stored statement's (same card, at most 3 billing cycles back; the expected number counts the cycles between, so statements can be uploaded in any order). `plan_ids`, `previous_statement_id`, `cycles` |
+| `installment_missing` | soft | A plan still running in the previous stored statement is absent (early payoff, or a row not read). A plan with fewer installments left than the cycles between has ended and is not reported. `plan_ids`, `previous_statement_id`, `cycles` |
 `Statement` = `StatementSummary` + `"transactions":[Transaction]` + `"interest_rates":{"purchase_monthly":"3.25", ...}` (strings, as printed)
 + `"parser_id":"tr_vakifbank_worldcard|<template id>|ai-fallback"` and optional parsed extras (`credit_limit`,
 `next_period_end`, `next_due_date`, `printed_summary`, `page_count`).

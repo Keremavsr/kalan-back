@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import date, timedelta
 from functools import cache
 from itertools import pairwise
 from pathlib import Path
@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from kalan import gate
-from kalan.models import Statement
+from kalan.models import InstallmentInfo, Statement, Transaction
 from kalan.pipeline import parse_pdf
 from kalan.reconcile import reconcile
 from tests.conftest import VB_PDFS, upload
@@ -154,3 +154,59 @@ def test_clean_upload_has_empty_review(client):
     assert body["needs_review"] is False
     assert body["review"] == []
 
+
+
+# -- statements uploaded out of order (invented plans and amounts) ---------------------------------------
+
+
+def cycle(n: int, plans: dict[str, int], total: int = 3) -> Statement:
+    """Statement ``n`` (1 = 2099-01) of one invented card, printing installment ``index`` of each plan."""
+    start = date(2099, n, 1)
+    txs = [Transaction(id=f"tx_{n}_{plan}", date=start + timedelta(days=2), description="ORNEK MARKET",
+                       amount=123456, direction="debit", kind="installment",
+                       installment=InstallmentInfo(remaining_count=total - index, remaining_amount_each=123456,
+                                                   is_last=index == total, plan_id=plan, index=index,
+                                                   total_count=total))
+           for plan, index in plans.items()]
+    st = base()
+    return st.model_copy(update={"id": f"st_ornek_{n}", "period_start": start, "period_end": date(2099, n, 25),
+                                 "due_date": date(2099, n, 28), "transactions": txs})
+
+
+def installment_codes(st: Statement, stored) -> dict[str, dict]:
+    return {i.code: i.details for i in gate.check(st, stored) if i.code.startswith("installment_")}
+
+
+def test_out_of_order_upload_three_installments():
+    """1/3, 2/3, 3/3 on three statements in a row, uploaded as 1/3, 3/3, 2/3: no false alarm."""
+    first, second, third = (cycle(n, {"pl_ornek": n}) for n in (1, 2, 3))
+    assert installment_codes(third, [first]) == {}  # two cycles after 1/3 comes 3/3
+    assert installment_codes(second, [first, third]) == {}
+
+
+def test_out_of_order_upload_still_flags_a_wrong_number():
+    first, third = cycle(1, {"pl_ornek": 1}), cycle(3, {"pl_ornek": 2})
+    found = installment_codes(third, [first])
+    assert found["installment_sequence"]["plan_ids"] == ["pl_ornek"]
+    assert found["installment_sequence"]["cycles"] == 2
+
+
+def test_missing_counts_the_cycles_between():
+    """A plan that ended in the statement not stored is not missing; one that should still run is."""
+    first = cycle(1, {"pl_ornek_kisa": 2, "pl_ornek_uzun": 1}, total=3)  # short plan ends at 3/3 in 2099-02
+    third = cycle(3, {}, total=3)
+    found = installment_codes(third, [first])
+    assert found["installment_missing"]["plan_ids"] == ["pl_ornek_uzun"]
+    assert found["installment_missing"]["cycles"] == 2
+    assert "pl_ornek_kisa" in installment_codes(cycle(2, {}), [first])["installment_missing"]["plan_ids"]
+
+
+def test_cut_off_moved_by_a_holiday_is_one_cycle():
+    first = cycle(1, {"pl_ornek": 1})
+    second = cycle(2, {"pl_ornek": 2}).model_copy(update={"period_end": date(2099, 2, 28)})  # moved three days
+    assert installment_codes(second, [first]) == {}
+
+
+def test_previous_too_far_back_is_not_compared():
+    first, fifth = cycle(1, {"pl_ornek": 1}, total=9), cycle(5, {"pl_ornek": 9}, total=9)
+    assert installment_codes(fifth, [first]) == {}

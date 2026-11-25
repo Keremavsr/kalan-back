@@ -10,13 +10,15 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import timedelta
+from typing import NamedTuple
 
 from kalan.models import GateIssue, Statement
 
 SCALES = (10, 100, 1000)
 PERIOD_DAYS = (20, 45)  # a usual statement period is about a month
 LATE_ROW_DAYS = 3  # rows dated after the cut-off by more than this
-PREVIOUS_GAP_DAYS = 45  # a stored statement ending this close before period_start is "the previous one"
+CYCLE_DAYS = 30.44  # average length of a monthly billing cycle
+MAX_CYCLE_GAP = 3  # compare installments with the latest stored statement at most this many cycles back
 
 
 def _hard(code: str, message: str, **details) -> GateIssue:
@@ -51,27 +53,51 @@ def _duplicate(st: Statement, stored: Iterable[Statement]) -> Statement | None:
     return None
 
 
-def _previous(st: Statement, stored: Iterable[Statement]) -> Statement | None:
-    earlier = [o for o in stored if _same_card(st, o) and o.period_end < st.period_start
-               and st.period_start - o.period_end <= timedelta(days=PREVIOUS_GAP_DAYS)]
-    return max(earlier, key=lambda o: o.period_end, default=None)
+def _cycles_between(earlier: Statement, later: Statement) -> int:
+    """Billing cycles from ``earlier`` to ``later``: 1 for the adjacent statement, 2 when one is missing.
+
+    Counted from the cut-off dates, rounded, so a cut-off moved by a weekend or holiday does not change it.
+    """
+    return round((later.period_end - earlier.period_end).days / CYCLE_DAYS)
 
 
-def _plan_index(st: Statement) -> dict[str, tuple[int | None, int | None, bool]]:
-    """plan id -> (lowest and highest installment number printed, closed in this statement).
+def _previous(st: Statement, stored: Iterable[Statement]) -> tuple[Statement, int] | None:
+    """The latest stored statement of the same card before ``st`` and the cycles between them.
+
+    Statements can be uploaded in any order, so the latest stored one may be several cycles back; it is
+    used when it is at most :data:`MAX_CYCLE_GAP` cycles back.
+    """
+    earlier = [o for o in stored if _same_card(st, o) and o.period_end < st.period_start]
+    prev = max(earlier, key=lambda o: o.period_end, default=None)
+    if prev is None:
+        return None
+    cycles = _cycles_between(prev, st)
+    return (prev, cycles) if 1 <= cycles <= MAX_CYCLE_GAP else None
+
+
+class _Plan(NamedTuple):
+    low: int | None  # lowest installment number printed
+    high: int | None  # highest installment number printed
+    remaining: int  # installments still to come after this statement
+    closed: bool  # last installment or early payoff in this statement
+
+
+def _plan_index(st: Statement) -> dict[str, _Plan]:
+    """plan id -> what this statement prints of the plan.
 
     An early payoff prints the remaining installments together, so a statement can hold several numbers.
     """
-    out: dict[str, tuple[int | None, int | None, bool]] = {}
+    out: dict[str, _Plan] = {}
     for t in st.transactions:
         info = t.installment
         if info is None:
             continue
-        low, high, closed = out.get(info.plan_id, (None, None, False))
+        low, high, remaining, closed = out.get(info.plan_id, (None, None, info.remaining_count, False))
         if info.index is not None:
             low = info.index if low is None else min(low, info.index)
             high = info.index if high is None else max(high, info.index)
-        out[info.plan_id] = (low, high, closed or info.is_last or info.remaining_count == 0)
+        out[info.plan_id] = _Plan(low, high, min(remaining, info.remaining_count),
+                                  closed or info.is_last or info.remaining_count == 0)
     return out
 
 
@@ -134,19 +160,24 @@ def check(st: Statement, stored: Iterable[Statement] = ()) -> list[GateIssue]:
         issues.append(_soft("installment_counter", "Installment number, count and remaining count disagree.",
                             transaction_ids=bad_rows))
 
-    prev = _previous(st, stored)
-    if prev is not None:
+    found = _previous(st, stored)
+    if found is not None:
+        prev, cycles = found
         now, before = _plan_index(st), _plan_index(prev)
-        jumped = sorted(p for p, (low, _, _) in now.items()
-                        if p in before and low is not None and before[p][1] is not None and low != before[p][1] + 1)
-        missing = sorted(p for p, (_, _, closed) in before.items() if not closed and p not in now)
+        # ``cycles`` statements later the plan is ``cycles`` installments further on
+        jumped = sorted(p for p, plan in now.items()
+                        if p in before and plan.low is not None and before[p].high is not None
+                        and plan.low != before[p].high + cycles)
+        # a plan with fewer installments left than cycles passed ended in a statement not stored
+        missing = sorted(p for p, plan in before.items()
+                         if not plan.closed and plan.remaining >= cycles and p not in now)
         if jumped:
             issues.append(_soft("installment_sequence", "An installment number does not follow the previous "
-                                "statement's.", plan_ids=jumped, previous_statement_id=prev.id))
+                                "statement's.", plan_ids=jumped, previous_statement_id=prev.id, cycles=cycles))
         if missing:
             issues.append(_soft("installment_missing", "A plan still running in the previous statement is not in "
                                 "this one (paid off early, or a row was not read).", plan_ids=missing,
-                                previous_statement_id=prev.id))
+                                previous_statement_id=prev.id, cycles=cycles))
     return issues
 
 

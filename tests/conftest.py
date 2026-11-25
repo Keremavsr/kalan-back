@@ -14,6 +14,17 @@ VB = Path(__file__).parent / "fixtures" / "vakifbank"
 VB_PDFS = sorted(VB.glob("vb-*.pdf"))
 
 
+@pytest.fixture(scope="session")
+def _empty_data_dir(tmp_path_factory) -> Path:
+    return tmp_path_factory.mktemp("kalan-data")
+
+
+@pytest.fixture(autouse=True)
+def _isolated_data_dir(monkeypatch, _empty_data_dir):
+    """No test may read the user's real data folder (or their own bank templates)."""
+    monkeypatch.setenv("KALAN_DATA_DIR", str(_empty_data_dir))
+
+
 @pytest.fixture(autouse=True)
 def _no_real_providers(monkeypatch):
     """No test may reach a real CLI, the keyring or a real model server."""

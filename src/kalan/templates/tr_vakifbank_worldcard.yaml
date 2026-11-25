@@ -1,0 +1,89 @@
+# VakıfBank Worldcard credit card statement (Turkey, TRY).
+# Layout learned from redacted real statements; the synthetic fixtures in tests/fixtures/vakifbank
+# reproduce it. Header: label / ":" / value on three lines. Table: one cell per line. Credits carry a
+# leading "+". Labels are compared after fold() (case, diacritics and dotted/undotted I ignored).
+schema_version: 1
+id: tr_vakifbank_worldcard
+country: TR
+bank: vakifbank
+product: Worldcard
+currency: TRY
+detect:
+  all: [VakıfBank, Worldcard, KREDİ KARTI HESAP ÖZETİ, İŞLEM TARİHİ, WORLDPUAN]
+amount:
+  preset: dot_decimal
+  credit_signs: ["+", "-"]
+date_format: DD.MM.YYYY
+
+header:
+  layout: colon_line
+  fields:
+    statement_total: [Dönem Borcunuz]
+    minimum_payment: [Asgari Ödeme Tutarı]
+    due_date: [Son Ödeme Tarihi]
+    credit_limit: [Limitiniz]
+    period_end: [Hesap Kesim Tarihi]
+    next_period_end: [Bir Sonraki Hesap Kesim Tarihi]
+    next_due_date: [Bir Sonraki Son Ödeme Tarihi]
+    card: [Kart No]
+
+table:
+  header: [İŞLEM TARİHİ, AÇIKLAMA, TUTAR (TL), KALAN TAKSİT, WORLDPUAN]
+  end: [HESAP ÖZETİ]
+  skip_lines: [KREDİ KARTI HESAP ÖZETİ (TL)]
+  skip_patterns: ['^sayfa \d+ / \d+$']
+  layout: cells
+  columns: [date, description, amount, installment, points]
+  amount_cell_pattern: '^[+-]?\d{1,3}(?:,\d{3})*\.\d{2}$'
+
+installment:
+  cells:
+    - pattern: '^(?P<left>\d{1,3})\s*[xX]\s*(?P<each>\d{1,3}(?:,\d{3})*\.\d{2})$'
+    - pattern: '^son taksit$'
+      last: true
+  description:
+    - '\b(?P<k>\d{1,2})\s*/\s*(?P<n>\d{1,2})\b'
+    - '\b(?P<k>\d{1,2})\s*\.\s*(?:taksit|bsmv|kkdf|vade)'
+  index_skip_kinds: [tax]
+  stem_remove:
+    - '\b(\d{1,2})\s*/\s*(\d{1,2})\b'
+    - '\b\d{1,2}\s*\.\s*(?=taksit|bsmv|kkdf|vade)'
+    - '\b(taksit anap|anapara|bsmv|kkdf|vade farki|taksit)\b'
+
+foreign_pattern: '\s(?P<amount>\d{1,3}(?:,\d{3})*\.\d{2})\s+(?P<currency>USD|EUR|GBP|CHF)$'
+
+kinds:
+  - {match: 'onceki donem hesap ozeti bakiyeniz', kind: carry_over}
+  - {match: 'odemeniz icin tesekkurler', kind: payment, direction: credit}
+  - {match: '^(?=.*erken kapama)(?=.*iptal)', kind: refund, direction: credit, component: early_payoff}
+  - {match: '^(?=.*(?:nakit avans|nakit cekim))(?=.*(?:taksit anap|anapara))', kind: cash_advance, component: principal}
+  - {match: '^(?=.*(?:nakit avans|nakit cekim))(?=.*bsmv)', kind: fee, component: bsmv}
+  - {match: '^(?=.*(?:nakit avans|nakit cekim))(?=.*kkdf)', kind: fee, component: kkdf}
+  - {match: '^(?=.*(?:nakit avans|nakit cekim))(?=.*vade fark)', kind: interest, component: interest}
+  - {match: 'nakit avans|nakit cekim', kind: cash_advance}
+  - {match: '^vergi', kind: tax}
+  - {credit: true, kind: refund, direction: credit}
+  - {match: 'faiz', kind: interest}
+  - {match: 'aidat|ucret|komisyon|masraf|bsmv|kkdf', kind: fee}
+  - {installment: true, kind: installment}
+default_kind: purchase
+credit_kind: refund
+merchant_kinds: [purchase, installment, refund]
+
+summary:
+  title: HESAP ÖZETİ
+  layout: next_line
+  fields:
+    previous_balance: [Önceki Hesap Bakiyesi]
+    period_transactions: [Dönem İçi İşlemler]
+    interest_and_fees: [Toplam Faiz ve Ücretler]
+    payments: [Ödemeler]
+    statement_total: [Dönem Borcunuz]
+
+rates:
+  title: FAİZ ORANLARI
+  keys:
+    Alışveriş Faiz Oranı: purchase
+    Nakit Çekim Faiz Oranı: cash_advance
+    Alışveriş Gecikme Faiz Oranı: purchase_late
+    Nakit Gecikme Faiz Oranı: cash_advance_late

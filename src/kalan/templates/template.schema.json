@@ -1,0 +1,694 @@
+{
+  "$defs": {
+    "AmountSpec": {
+      "additionalProperties": false,
+      "description": "How amounts are printed. Either a preset or explicit separators.",
+      "properties": {
+        "preset": {
+          "anyOf": [
+            {
+              "enum": [
+                "dot_decimal",
+                "comma_decimal",
+                "space_comma"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "dot_decimal = 2,345.60; comma_decimal = 2.345,60; space_comma = 2 345,60",
+          "title": "Preset"
+        },
+        "thousands": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "\",\" \".\" \" \" or \"\" (never grouped)",
+          "title": "Thousands"
+        },
+        "decimal": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decimal"
+        },
+        "decimals": {
+          "default": 2,
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Decimals",
+          "type": "integer"
+        },
+        "credit_signs": {
+          "default": [
+            "+",
+            "-"
+          ],
+          "description": "A printed sign from this list marks a credit (in the holder's favour)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Credit Signs",
+          "type": "array"
+        }
+      },
+      "title": "AmountSpec",
+      "type": "object"
+    },
+    "CellRule": {
+      "additionalProperties": false,
+      "properties": {
+        "pattern": {
+          "description": "Regex on the cell (tried on the printed cell, then on fold(cell)). Named groups: left + each (remaining count and amount each), k + n (installment k of n)",
+          "title": "Pattern",
+          "type": "string"
+        },
+        "last": {
+          "default": false,
+          "description": "A match means this row is the last installment",
+          "title": "Last",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "pattern"
+      ],
+      "title": "CellRule",
+      "type": "object"
+    },
+    "DetectSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "all": {
+          "description": "Every phrase must appear (compared after fold())",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "All",
+          "type": "array"
+        },
+        "none": {
+          "description": "No phrase may appear",
+          "items": {
+            "type": "string"
+          },
+          "title": "None",
+          "type": "array"
+        }
+      },
+      "required": [
+        "all"
+      ],
+      "title": "DetectSpec",
+      "type": "object"
+    },
+    "HeaderSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "layout": {
+          "default": "colon_line",
+          "description": "colon_line: label / ':' / value on three lines; next_line: label then value; inline: 'label<separator> value' on one line",
+          "enum": [
+            "colon_line",
+            "next_line",
+            "inline"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
+        "separator": {
+          "default": ":",
+          "title": "Separator",
+          "type": "string"
+        },
+        "fields": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "Field -> printed labels (any one matches)",
+          "propertyNames": {
+            "enum": [
+              "statement_total",
+              "minimum_payment",
+              "due_date",
+              "period_start",
+              "period_end",
+              "credit_limit",
+              "next_period_end",
+              "next_due_date",
+              "card"
+            ]
+          },
+          "title": "Fields",
+          "type": "object"
+        },
+        "card_last4_pattern": {
+          "default": "(?:\\*{2,}|x{2,}|X{2,}|\\*\\*\\*\\*\\s?)(\\d{4})\\]?$",
+          "description": "Regex on the card field; group 1 = last four digits",
+          "title": "Card Last4 Pattern",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fields"
+      ],
+      "title": "HeaderSpec",
+      "type": "object"
+    },
+    "InstallmentSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "cells": {
+          "description": "Patterns of the installment column",
+          "items": {
+            "$ref": "#/$defs/CellRule"
+          },
+          "title": "Cells",
+          "type": "array"
+        },
+        "description": {
+          "description": "Regexes on fold(description) giving the installment number: group k, optional n",
+          "items": {
+            "type": "string"
+          },
+          "title": "Description",
+          "type": "array"
+        },
+        "index_skip_kinds": {
+          "default": [
+            "tax"
+          ],
+          "items": {
+            "enum": [
+              "purchase",
+              "installment",
+              "cash_advance",
+              "fee",
+              "tax",
+              "interest",
+              "payment",
+              "refund",
+              "carry_over",
+              "other"
+            ],
+            "type": "string"
+          },
+          "title": "Index Skip Kinds",
+          "type": "array"
+        },
+        "stem_remove": {
+          "description": "Regexes removed, in order, from fold(description) to get the plan's stable stem",
+          "items": {
+            "type": "string"
+          },
+          "title": "Stem Remove",
+          "type": "array"
+        }
+      },
+      "title": "InstallmentSpec",
+      "type": "object"
+    },
+    "KindRule": {
+      "additionalProperties": false,
+      "properties": {
+        "match": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Regex searched in fold(description)",
+          "title": "Match"
+        },
+        "credit": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only rows printed as credit (true) or debit (false)",
+          "title": "Credit"
+        },
+        "installment": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only rows with (true) or without an installment cell",
+          "title": "Installment"
+        },
+        "kind": {
+          "enum": [
+            "purchase",
+            "installment",
+            "cash_advance",
+            "fee",
+            "tax",
+            "interest",
+            "payment",
+            "refund",
+            "carry_over",
+            "other"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "enum": [
+                "debit",
+                "credit"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Force a direction; default: from the sign",
+          "title": "Direction"
+        },
+        "component": {
+          "anyOf": [
+            {
+              "enum": [
+                "principal",
+                "bsmv",
+                "kkdf",
+                "interest",
+                "early_payoff"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Role inside an installment cash advance",
+          "title": "Component"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "KindRule",
+      "type": "object"
+    },
+    "RatesSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "pattern": {
+          "default": "^%\\s*(?P<monthly>\\d+(?:[.,]\\d+)?)\\s+%\\s*(?P<yearly>\\d+(?:[.,]\\d+)?)$",
+          "description": "Regex on the line after a rate label; named groups monthly and/or yearly",
+          "title": "Pattern",
+          "type": "string"
+        },
+        "keys": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Printed label -> key (default: slug of label)",
+          "title": "Keys",
+          "type": "object"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "RatesSpec",
+      "type": "object"
+    },
+    "SummarySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "description": "Label that opens the printed summary block",
+          "title": "Title",
+          "type": "string"
+        },
+        "layout": {
+          "default": "next_line",
+          "enum": [
+            "next_line",
+            "inline"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
+        "separator": {
+          "default": ":",
+          "title": "Separator",
+          "type": "string"
+        },
+        "fields": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "propertyNames": {
+            "enum": [
+              "previous_balance",
+              "period_transactions",
+              "interest_and_fees",
+              "payments",
+              "statement_total"
+            ]
+          },
+          "title": "Fields",
+          "type": "object"
+        }
+      },
+      "required": [
+        "title",
+        "fields"
+      ],
+      "title": "SummarySpec",
+      "type": "object"
+    },
+    "TableSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "header": {
+          "description": "Table header labels, one per line, in order",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Header",
+          "type": "array"
+        },
+        "end": {
+          "description": "First line after the table (any one of these labels)",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "End",
+          "type": "array"
+        },
+        "skip_lines": {
+          "description": "Lines to drop inside the table (page titles)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Skip Lines",
+          "type": "array"
+        },
+        "skip_patterns": {
+          "description": "Regexes on fold(line) to drop inside the table (page footers)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Skip Patterns",
+          "type": "array"
+        },
+        "layout": {
+          "default": "cells",
+          "description": "cells: every cell on its own line (date, description lines, amount, optional cells); line: one row per line, parsed with row_pattern",
+          "enum": [
+            "cells",
+            "line"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
+        "columns": {
+          "default": [
+            "date",
+            "description",
+            "amount",
+            "installment",
+            "points"
+          ],
+          "description": "Row columns in printed order (cells layout: date, description, amount first)",
+          "items": {
+            "enum": [
+              "date",
+              "description",
+              "amount",
+              "installment",
+              "points"
+            ],
+            "type": "string"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "row_pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "line layout: regex with named groups date, description, amount and optional installment, points",
+          "title": "Row Pattern"
+        },
+        "amount_cell_pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Regex for the amount cell; default: a signed amount with decimals in the format",
+          "title": "Amount Cell Pattern"
+        },
+        "points_pattern": {
+          "default": "^\\d+(?:[.,]\\d+)?$",
+          "title": "Points Pattern",
+          "type": "string"
+        }
+      },
+      "required": [
+        "header",
+        "end"
+      ],
+      "title": "TableSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One bank product's statement layout.",
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "id": {
+      "description": "<country>_<bank>_<product>, lower case",
+      "pattern": "^[a-z]{2}_[a-z0-9]+_[a-z0-9]+$",
+      "title": "Id",
+      "type": "string"
+    },
+    "country": {
+      "description": "ISO 3166-1 alpha-2",
+      "pattern": "^[A-Z]{2}$",
+      "title": "Country",
+      "type": "string"
+    },
+    "bank": {
+      "minLength": 1,
+      "title": "Bank",
+      "type": "string"
+    },
+    "product": {
+      "minLength": 1,
+      "title": "Product",
+      "type": "string"
+    },
+    "currency": {
+      "description": "ISO 4217",
+      "pattern": "^[A-Z]{3}$",
+      "title": "Currency",
+      "type": "string"
+    },
+    "detect": {
+      "$ref": "#/$defs/DetectSpec"
+    },
+    "amount": {
+      "$ref": "#/$defs/AmountSpec"
+    },
+    "date_format": {
+      "description": "Tokens DD D MM M MMM YYYY YY, e.g. DD.MM.YYYY, MM/DD/YYYY, YYYY-MM-DD",
+      "title": "Date Format",
+      "type": "string"
+    },
+    "header": {
+      "$ref": "#/$defs/HeaderSpec"
+    },
+    "table": {
+      "$ref": "#/$defs/TableSpec"
+    },
+    "installment": {
+      "$ref": "#/$defs/InstallmentSpec"
+    },
+    "foreign_pattern": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": "\\s(?P<amount>\\d[\\d.,]*)\\s+(?P<currency>[A-Z]{3})$",
+      "description": "Regex on the description for a foreign amount: groups amount, currency",
+      "title": "Foreign Pattern"
+    },
+    "kinds": {
+      "description": "First matching rule wins",
+      "items": {
+        "$ref": "#/$defs/KindRule"
+      },
+      "title": "Kinds",
+      "type": "array"
+    },
+    "default_kind": {
+      "default": "purchase",
+      "enum": [
+        "purchase",
+        "installment",
+        "cash_advance",
+        "fee",
+        "tax",
+        "interest",
+        "payment",
+        "refund",
+        "carry_over",
+        "other"
+      ],
+      "title": "Default Kind",
+      "type": "string"
+    },
+    "credit_kind": {
+      "default": "refund",
+      "description": "Kind of an unmatched credit row",
+      "enum": [
+        "purchase",
+        "installment",
+        "cash_advance",
+        "fee",
+        "tax",
+        "interest",
+        "payment",
+        "refund",
+        "carry_over",
+        "other"
+      ],
+      "title": "Credit Kind",
+      "type": "string"
+    },
+    "merchant_kinds": {
+      "default": [
+        "purchase",
+        "installment",
+        "refund"
+      ],
+      "items": {
+        "enum": [
+          "purchase",
+          "installment",
+          "cash_advance",
+          "fee",
+          "tax",
+          "interest",
+          "payment",
+          "refund",
+          "carry_over",
+          "other"
+        ],
+        "type": "string"
+      },
+      "title": "Merchant Kinds",
+      "type": "array"
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SummarySpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "rates": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RatesSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "id",
+    "country",
+    "bank",
+    "product",
+    "currency",
+    "detect",
+    "amount",
+    "date_format",
+    "header",
+    "table"
+  ],
+  "title": "Template",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kalan/kalan-back/templates/template.schema.json"
+}

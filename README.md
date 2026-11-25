@@ -87,7 +87,8 @@ pytest
 python tools/synth_vakifbank.py     # regenerate the synthetic VakıfBank fixtures
 ```
 
-Supported statements are listed in `src/kalan/parsers/`. To add a bank, see
+Supported statements are the templates in `src/kalan/templates/` and the parsers in `src/kalan/parsers/`.
+To add a bank (a YAML template, no Python needed), see
 [docs/adding-a-bank.md](docs/adding-a-bank.md).
 
 Test fixtures are synthetic. Never add a real statement to this repository.

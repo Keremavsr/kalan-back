@@ -19,6 +19,7 @@ dependencies = [
     "platformdirs>=4",
     "python-multipart>=0.0.9",
     "keyring>=24",
+    "pyyaml>=6",
 ]
 
 [project.optional-dependencies]

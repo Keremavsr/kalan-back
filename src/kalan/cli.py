@@ -1,6 +1,8 @@
 """``kalan`` command line.
 
 ``kalan serve [--port N] [--print-port]`` runs the HTTP API. The host is fixed to 127.0.0.1.
+``kalan template check <file.yaml> <statement.pdf> [--quiet]`` tests a bank template on one statement.
+``kalan template schema`` prints the template JSON Schema.
 
 Sidecar mode (the Electron desktop app starts the back end as a child process):
 
@@ -114,7 +116,26 @@ def main(argv: list[str] | None = None) -> int:
                          help=f"port (default {DEFAULT_PORT}; 0 picks a free port)")
     p_serve.add_argument("--print-port", action="store_true",
                          help='print one JSON line {"event":"ready","port":N} to stdout when listening')
+    p_tpl = sub.add_parser("template", help="work with declarative bank templates")
+    tsub = p_tpl.add_subparsers(dest="template_command", required=True)
+    p_check = tsub.add_parser("check", help="validate a template and run it on one statement")
+    p_check.add_argument("file", help="template YAML file")
+    p_check.add_argument("statement", help="statement PDF (or .txt with the extracted text)")
+    p_check.add_argument("--quiet", action="store_true", help="counts and statuses only, no values")
+    tsub.add_parser("schema", help="print the template JSON Schema")
     args = parser.parse_args(argv)
+    if args.command == "template":
+        if args.template_command == "schema":
+            from kalan.parsers.template import template_json_schema
+
+            print(json.dumps(template_json_schema(), ensure_ascii=False, indent=2))
+            return 0
+        from kalan.template_check import check
+
+        lines, code = check(args.file, args.statement, quiet=args.quiet)
+        for line in lines:
+            print(line)
+        return code
     if args.command == "serve":
         if not 0 <= args.port <= 65535:
             parser.error("--port must be between 0 and 65535")

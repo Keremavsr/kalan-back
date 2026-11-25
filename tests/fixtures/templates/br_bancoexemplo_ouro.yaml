@@ -1,0 +1,50 @@
+# Invented layout for engine tests only ("Banco Exemplo" does not exist). Not shipped.
+schema_version: 1
+id: br_bancoexemplo_ouro
+country: BR
+bank: bancoexemplo
+product: Ouro
+currency: BRL
+detect:
+  all: [BANCO EXEMPLO, Cartão Ouro, RESUMO DA FATURA]
+amount:
+  preset: comma_decimal
+date_format: DD/MM/YYYY
+header:
+  layout: inline
+  fields:
+    statement_total: [Total da fatura]
+    minimum_payment: [Pagamento mínimo]
+    due_date: [Vencimento]
+    period_end: [Fechamento]
+    credit_limit: [Limite total]
+    card: [Cartão]
+table:
+  header: [DATA, DESCRIÇÃO, VALOR]
+  end: [RESUMO DA FATURA]
+  skip_patterns: ['^pagina \d+ de \d+$']
+  layout: line
+  columns: [date, description, installment, amount]
+  row_pattern: '^(?P<date>\d{2}/\d{2}/\d{4})\s+(?P<description>.+?)(?:\s+(?P<installment>\d{2}/\d{2}))?\s+(?P<amount>-?[\d.]+,\d{2})$'
+installment:
+  cells:
+    - pattern: '^(?P<k>\d{1,2})/(?P<n>\d{1,2})$'
+  stem_remove: []
+foreign_pattern: '\s(?P<amount>[\d.]+,\d{2})\s+(?P<currency>[A-Z]{3})$'
+kinds:
+  - {match: 'saldo anterior', kind: carry_over}
+  - {match: '^pagamento', kind: payment, direction: credit}
+  - {match: 'anuidade|tarifa', kind: fee}
+  - {match: 'juros', kind: interest}
+  - {match: '^iof', kind: tax}
+  - {credit: true, kind: refund, direction: credit}
+  - {installment: true, kind: installment}
+summary:
+  title: RESUMO DA FATURA
+  layout: inline
+  fields:
+    previous_balance: [Saldo anterior]
+    period_transactions: [Lançamentos do período]
+    interest_and_fees: [Encargos e tarifas]
+    payments: [Pagamentos]
+    statement_total: [Total desta fatura]

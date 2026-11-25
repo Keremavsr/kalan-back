@@ -6,9 +6,9 @@
     {
       "id": "tkhk_31",
       "title": "6502 sayılı Tüketicinin Korunması Hakkında Kanun, m. 31",
-      "summary": "Card issuers must offer at least one credit card type with no annual membership fee or similar charge.",
+      "summary": "Art. 31(3): card issuers must offer consumers a credit card type for which no annual membership fee or similar charge is collected.",
       "source": "https://www.mevzuat.gov.tr/mevzuatmetin/1.5.6502.pdf",
-      "verified": "Article number and wording as quoted by several law firms and the Union of Turkish Bar Associations journal; the official text was not opened."
+      "verified": "Checked on the official text (mevzuat.gov.tr) 2026-11-25: 'Kart çıkaran kuruluşlar, tüketicilere yıllık üyelik aidatı ve benzeri isim altında ücret tahsil etmedikleri bir kredi kartı türü sunmak zorundadır.'"
     },
     {
       "id": "tcmb_fee_communique",
@@ -33,10 +33,14 @@
     "effective_from": "2026-01-01",
     "source": "https://www.resmigazete.gov.tr/eskiler/2025/12/20251223.htm",
     "act": "Ticaret Bakanlığı tebliği, RG 23.12.2025, 33116 (6502 m. 68 limits revalued by 25,49 %)",
-    "previous": {"year": 2025, "limit_below": 14900000, "verified": "secondary sources only"},
+    "previous": {
+      "year": 2025,
+      "limit_below": 14900000,
+      "verified": "secondary sources only"
+    },
     "apply": "online through e-Devlet (Tüketici Hakem Heyeti Başvurusu) or TÜBİS at https://tuketici.ticaret.gov.tr, at the committee of the consumer's place of residence or where the transaction took place",
     "alternative": "Türkiye Bankalar Birliği Bireysel Müşteri Hakem Heyeti, https://www.tbb.org.tr/",
-    "verified": "Limit, date and Resmî Gazete number confirmed by several news and law sites quoting the communiqué; the Resmî Gazete page itself was not opened."
+    "verified": "Checked on the Resmî Gazete 2026-11-25: 186.000 TL from 1/1/2026, RG 23.12.2025, 33116. Same limit for provincial and district committees; where a district has no committee, apply through the kaymakamlık."
   },
   "time_limit": {
     "value": null,

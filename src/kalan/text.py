@@ -25,3 +25,18 @@ def fold(text: str) -> str:
 
 def same_label(a: str, b: str) -> bool:
     return fold(a) == fold(b)
+
+
+_INSTALLMENT_MARKERS = re.compile(
+    r"\(?\b\d{1,2}\s*/\s*\d{1,2}\b\)?|\b\d{1,2}\s*\.\s*taks[iİı]t\b|\btaks[iİı]t\b",
+    re.IGNORECASE,
+)
+_FOREIGN_TAIL = re.compile(r"\s+\d[\d,.]*\s+[A-Z]{3}$")
+
+
+def normalize_merchant(description: str) -> str:
+    """Merchant key: description without installment markers or foreign-amount tail, upper case."""
+    text = _FOREIGN_TAIL.sub("", description.strip())
+    text = _INSTALLMENT_MARKERS.sub(" ", text)
+    text = _SPACE_RE.sub(" ", text).strip(" -/")
+    return text.upper()

@@ -9,6 +9,8 @@ Rules, applied in this order:
    label alone on its line with the value (containing a digit) on the next line.
 3. ``card``: card numbers, masked (``4799********1234``) or full (Luhn-valid). Replaced by
    ``[CARD ****1234]`` so that parsers can still keep the last four digits, and nothing else.
+   ``card_holder``: the holder's name printed in capitals on the line after a card number (Yapı Kredi
+   card tables), or between ``KART BİLGİLERİNİZ:`` and the card number (Garanti BBVA virtual card).
 4. ``iban``: ``TR`` + 24 digits, and other IBANs that pass the mod-97 check.
 5. ``email``.
 6. ``national_id``: Turkish T.C. kimlik numbers (11 digits with valid check digits).
@@ -79,6 +81,9 @@ _PHONE_TR = re.compile(
 )
 _PHONE_INTL = re.compile(r"(?<![\w+])\+\d{1,3}(?:[ -]?\(?\d{1,4}\)?){2,5}(?![\d]|[.,]\d)")
 _BILL_REFERENCE = re.compile(r"\b(ABNO|FTNO)([ :]+)(?!\[)\S+")
+_UPPER = "A-ZÇĞİÖŞÜÂÎÛ"
+_HOLDER_LINE = re.compile(rf"^[{_UPPER}][{_UPPER}'.-]*(?: [{_UPPER}][{_UPPER}'.-]*){{1,4}}$")
+_HOLDER_INLINE = re.compile(r"(KART B[İI]LG[İI]LER[İI]N[İI]Z\s*:)\s*[^/\[\]:]+?\s*/")
 _LONG_NUMBER = re.compile(r"(?<![\d.,])\d{10,}(?![\d]|[.,]\d)")
 
 
@@ -148,6 +153,20 @@ class _Redactor:
             return repl(m) if callable(repl) else repl
 
         return pattern.sub(_r, text)
+
+    def holder(self, text: str) -> str:
+        text = self.sub("card_holder", _HOLDER_INLINE, text, lambda m: f"{m.group(1)} [NAME] /")
+        lines = text.split("\n")
+        prev = ""
+        for i, line in enumerate(lines):
+            s = line.strip()
+            if not s:
+                continue
+            if "[CARD ****" in prev and _HOLDER_LINE.match(s):
+                lines[i] = "[NAME]"
+                self.counts["card_holder"] += 1
+            prev = s
+        return "\n".join(lines)
 
     def card(self, m: re.Match[str]) -> str:
         last4 = _card_candidate(m.group(0))
@@ -220,6 +239,7 @@ def redact(text: str) -> RedactionResult:
         page = _CARD_GROUPED.sub(r.card, page)
         page = _CARD_AMEX.sub(r.card, page)
         page = _CARD_PLAIN.sub(r.card, page)
+        page = r.holder(page)
         page = r.sub("iban", _IBAN_TR, page, "[IBAN]")
         page = r.sub("iban", _IBAN_ANY, page, "[IBAN]", check=lambda m: iban_ok(m.group(0)))
         page = r.sub("email", _EMAIL, page, "[EMAIL]")

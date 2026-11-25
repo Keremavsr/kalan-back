@@ -27,6 +27,7 @@ from kalan.amounts import add_months, month_key, try_parse_amount, try_parse_dat
 from kalan.models import PrintedSummary
 from kalan.parsers.base import ParseError
 from kalan.parsers.template import TemplateParser, _Row
+from kalan.text import fold
 
 _AMOUNT = r"\d{1,3}(?:\.\d{3})*,\d{2}"
 _AMOUNT_CELL = re.compile(rf"^[+-]?{_AMOUNT}$")
@@ -90,26 +91,41 @@ class YapikrediWorld(TemplateParser):
 
     # ------------------------------------------------------------------------------- table
 
-    def _rows(self, lines: list[str], folded: list[str]) -> list[_Row]:
+    def _read_rows(self, text: str, lines: list[str], folded: list[str]) -> list[_Row]:
+        """Every card table, from its header to ``TOPLAM``.
+
+        A table that runs over a page break continues after the table header repeated on the next page;
+        whatever the new page prints before it (card number, holder) and page footers are dropped.
+        """
         head = self._c["table_header"]
-        starts = [i + len(head) for i in range(len(folded) - len(head) + 1) if tuple(folded[i : i + len(head)]) == head]
-        if not starts:
+        flat: list[tuple[str, str, int]] = []
+        for p, page in enumerate(self.pages(text)):
+            flat.extend((ln.strip(), fold(ln), p) for ln in page.replace("\r", "").split("\n") if ln.strip())
+        fl = [f for _, f, _ in flat]
+        header_at = [i for i in range(len(fl) - len(head) + 1) if tuple(fl[i : i + len(head)]) == head]
+        if not header_at:
             raise ParseError("transaction table header not found")
         carry_date = self._previous_cut(lines, folded)
         rows: list[_Row] = []
-        end = -1
-        for start in starts:
-            if start <= end:  # a repeated header inside a table that runs over a page break
+        i = -1
+        for h in header_at:
+            if h <= i:  # header repeated on a continuation page, already handled
                 continue
+            i = h + len(head)
+            body: list[tuple[str, str]] = []
+            while i < len(flat) and flat[i][1] not in _TABLE_END:
+                if i > 0 and flat[i][2] != flat[i - 1][2]:  # page break inside the table
+                    again = next((x for x in header_at if x >= i and flat[x][2] == flat[i][2]), None)
+                    if again is not None:
+                        i = again + len(head)
+                        continue
+                ln, f, _ = flat[i]
+                if not any(p.match(f) for p in _FOOTER):
+                    body.append((ln, f))
+                i += 1
             # A table ends at its TOPLAM row; a table holding only the opening balance has none.
-            end = next((j for j in range(start, len(folded)) if folded[j] in _TABLE_END), -1)
-            if end < 0:
+            if i >= len(flat):
                 raise ParseError("end of transaction table not found")
-            body = [
-                (ln, f)
-                for ln, f in zip(lines[start:end], folded[start:end], strict=True)
-                if f not in head and not any(p.match(f) for p in _FOOTER)
-            ]
             rows.extend(self._table_rows(body, carry_date))
         return rows
 

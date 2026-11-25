@@ -145,6 +145,16 @@ def test_label_then_colon_value_line_and_label_then_value_line():
     assert r.counts["labelled"] == 1
 
 
+def test_card_holder_after_card_number_and_virtual_card_line():
+    r = redact("Kart Numarası\n4111 11** **** 1234\nORNEK KİŞİ\nİşlem Tarihi\n")
+    assert r.text == "Kart Numarası\n[CARD ****1234]\n[NAME]\nİşlem Tarihi\n"
+    r = redact("Kart Numarası\n4111 11** **** 1234\nKart Limiti\n")
+    assert "Kart Limiti" in r.text
+    r = redact("BONUS SANAL KART BİLGİLERİNİZ: ORNEK KİŞİ / 4111 11** **** 1234\n")
+    assert r.text == "BONUS SANAL KART BİLGİLERİNİZ: [NAME] / [CARD ****1234]\n"
+    assert r.counts["card_holder"] == 1
+
+
 def test_bill_references():
     r = redact("ABNO 4455667           FTNO 2026A-99\n")
     assert r.text == "ABNO [NUMBER]           FTNO [NUMBER]\n"

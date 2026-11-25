@@ -10,6 +10,7 @@ from pathlib import Path
 from kalan.models import Statement
 from kalan.parsers import detect_parser
 from kalan.pdf import extract_text
+from kalan.reconcile import reconcile
 from kalan.redact import redact
 
 
@@ -19,7 +20,7 @@ def parse_text(text: str) -> Statement:
     statement = parser.parse(result.text)
     if statement.card_last4 is None and result.card_last4 is not None:
         statement = statement.model_copy(update={"card_last4": result.card_last4})
-    return statement
+    return statement.model_copy(update={"reconciliation": reconcile(statement)})
 
 
 def parse_pdf(source: str | Path | bytes) -> Statement:

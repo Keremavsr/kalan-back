@@ -105,8 +105,9 @@ STREAMPLAY-ORNEK LONDON GB 9.99 GBP
 """
 
 
-def _text(rows=ROWS, total="2,060.50", period="2,990.50", fees="70.00", payments="+1,000.00", prev="1,000.00"):
+def _text(rows=ROWS, total="3,060.50", period="2,990.50", fees="70.00", payments="+1,000.00", prev="1,000.00"):
     # period = 250.50 + 500 + 900 + 950 - 40 + 430 = 2,990.50 ; fees = 10 + 60 = 70.00
+    # total = 1,000 (previous) + 2,990.50 + 70 - 1,000 (payment) = 3,060.50
     head = HEADER.format(total=total, minimum="412.10")
     foot = FOOTER.format(prev=prev, period=period, fees=fees, payments=payments, total=total)
     return head + rows + foot
@@ -122,7 +123,7 @@ def test_header_fields():
     assert st.period_end == date(2026, 4, 24)
     assert st.period_start == date(2026, 3, 24)
     assert st.due_date == date(2026, 5, 4)
-    assert st.statement_total == 206050
+    assert st.statement_total == 306050
     assert st.minimum_payment == 41210
     assert st.credit_limit == 5000000
     assert st.next_period_end == date(2026, 5, 22)

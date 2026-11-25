@@ -1,0 +1,45 @@
+{
+  "country": "TR",
+  "checked_on": "2026-11-25",
+  "note": "Legal basis for asking a bank to refund an annual card fee, and where to apply if it refuses. Not legal advice; the user checks the current text before sending.",
+  "legal_basis": [
+    {
+      "id": "tkhk_31",
+      "title": "6502 sayılı Tüketicinin Korunması Hakkında Kanun, m. 31",
+      "summary": "Card issuers must offer at least one credit card type with no annual membership fee or similar charge.",
+      "source": "https://www.mevzuat.gov.tr/mevzuatmetin/1.5.6502.pdf",
+      "verified": "Article number and wording as quoted by several law firms and the Union of Turkish Bar Associations journal; the official text was not opened."
+    },
+    {
+      "id": "tcmb_fee_communique",
+      "title": "Finansal Tüketicilerden Alınacak Ücretlere İlişkin Tebliğ (TCMB, Sayı 2020/7), RG 07.03.2020, 31061, as amended",
+      "summary": "Fees may be charged only for the listed products and services, only if agreed in the contract, and an increase must be notified in advance.",
+      "source": "https://www.resmigazete.gov.tr/eskiler/2020/03/20200307-9.htm",
+      "verified": "Publication date and number from the Resmî Gazete index; later amendments were not checked."
+    },
+    {
+      "id": "bddk_fee_faq",
+      "title": "BDDK, Bireysel Müşterilere İlişkin Ücretler (questions and answers)",
+      "summary": "A no-fee card type must be offered; the annual fee accrues after the first debiting use; no fee while a card has had no movement for 180 days; a supplementary card fee is at most half of the main card's; complaints go to the bank first, then to TCMB or the banks' consumer arbitration committee.",
+      "source": "https://www.bddk.org.tr/SSS/Liste/114",
+      "verified": "Points as summarised from the BDDK page by a search on 2026-11-25; the page itself was not opened."
+    }
+  ],
+  "hakem_heyeti": {
+    "year": 2026,
+    "limit_below": 18600000,
+    "currency": "TRY",
+    "rule": "Disputes worth less than this go to the provincial or district consumer arbitration committee (Tüketici Hakem Heyeti); from this amount up, to the consumer court, after mandatory mediation.",
+    "effective_from": "2026-01-01",
+    "source": "https://www.resmigazete.gov.tr/eskiler/2025/12/20251223.htm",
+    "act": "Ticaret Bakanlığı tebliği, RG 23.12.2025, 33116 (6502 m. 68 limits revalued by 25,49 %)",
+    "previous": {"year": 2025, "limit_below": 14900000, "verified": "secondary sources only"},
+    "apply": "online through e-Devlet (Tüketici Hakem Heyeti Başvurusu) or TÜBİS at https://tuketici.ticaret.gov.tr, at the committee of the consumer's place of residence or where the transaction took place",
+    "alternative": "Türkiye Bankalar Birliği Bireysel Müşteri Hakem Heyeti, https://www.tbb.org.tr/",
+    "verified": "Limit, date and Resmî Gazete number confirmed by several news and law sites quoting the communiqué; the Resmî Gazete page itself was not opened."
+  },
+  "time_limit": {
+    "value": null,
+    "note": "Secondary sources disagree on how far back a fee refund can be claimed; kalan does not state a limit. The user should ask the bank or a lawyer."
+  }
+}

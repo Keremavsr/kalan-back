@@ -114,6 +114,7 @@ class StatementSummary(_Model):
     minimum_payment: int
     reconciliation: Reconciliation | None = None
     analysis_status: AnalysisStatus = "none"
+    needs_review: bool = Field(default=False, description="Read by the AI fallback and does not reconcile")
 
 
 class Statement(StatementSummary):

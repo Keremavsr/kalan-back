@@ -17,7 +17,12 @@ repository and talks to this service over HTTP only (see [docs/api.md](docs/api.
   SQLite file in your user data folder (`KALAN_DATA_DIR` overrides it).
 - Your card number, name, address, IBAN, national ID, phone, e-mail and customer numbers are removed
   from the statement text before it is parsed or stored. Only the last four card digits are kept.
-- The PDF itself is never stored.
+- The PDF itself is never stored. If no bank template recognises a statement and you selected an AI
+  provider, kalan sends the statement's redacted page text to that provider so it can transcribe the
+  rows (the AI fallback). kalan then checks the result against the printed totals in code and flags it
+  for review when they disagree. The redacted text of such a statement is kept, so you can ask for a
+  template draft later, and it is deleted with the statement. Upload with `?ai_fallback=false` to turn
+  this off.
 - If you ask for an analysis, the chosen AI provider receives, per transaction, only an opaque id,
   the date, the description, the amount, the currency and the kind, plus totals computed by kalan.
   Descriptions are passed through the redactor once more before they leave. A cloud provider (Claude,

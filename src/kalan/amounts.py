@@ -214,3 +214,36 @@ def months_between(a: str, b: str) -> int:
     ay, am = (int(p) for p in a.split("-"))
     by, bm = (int(p) for p in b.split("-"))
     return (by * 12 + bm) - (ay * 12 + am)
+
+
+# ISO 4217 minor units. Every code not listed has two decimals.
+_ZERO_DECIMAL = frozenset({
+    "BIF", "CLP", "DJF", "GNF", "ISK", "JPY", "KMF", "KRW", "PYG", "RWF", "UGX", "UYI", "VND", "VUV", "XAF", "XOF",
+    "XPF",
+})
+_THREE_DECIMAL = frozenset({"BHD", "IQD", "JOD", "KWD", "LYD", "OMR", "TND"})
+ISO_CURRENCY_RE = re.compile(r"^[A-Z]{3}$")
+
+
+def minor_units(currency: str) -> int:
+    """Number of decimals of an ISO 4217 currency (``JPY`` 0, ``KWD`` 3, everything else 2)."""
+    code = currency.upper()
+    if not ISO_CURRENCY_RE.match(code):
+        raise ValueError(f"not an ISO 4217 code: {currency!r}")
+    return 0 if code in _ZERO_DECIMAL else 3 if code in _THREE_DECIMAL else 2
+
+
+def decimal_to_minor(text: str, currency: str) -> int:
+    """``"-12.30"`` (plain decimal, dot separator) to signed minor units of ``currency``. Exact, no floats."""
+    from decimal import Decimal, InvalidOperation
+
+    t = text.strip()
+    if not re.match(r"^[+-]?\d+(?:\.\d+)?$", t):
+        raise ValueError(f"not a plain decimal: {text!r}")
+    try:
+        value = Decimal(t) * (10 ** minor_units(currency))
+    except InvalidOperation:
+        raise ValueError(f"not a plain decimal: {text!r}") from None
+    if value != value.to_integral_value():
+        raise ValueError(f"{text!r} has more decimals than {currency} allows")
+    return int(value)

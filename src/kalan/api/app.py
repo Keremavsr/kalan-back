@@ -1,4 +1,4 @@
-"""FastAPI application. Every route of ``docs/api.md`` v0.1.1 lives here.
+"""FastAPI application. Every route of ``docs/api.md`` v0.2.0 lives here.
 
 Logs carry ids, counts and error codes only: never descriptions, amounts, file names or model text.
 """
@@ -17,14 +17,17 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 import kalan
-from kalan.ai.adapters import DEFAULT_TIMEOUT, ProviderRegistry
+from kalan.ai import reader
+from kalan.ai.adapters import DEFAULT_TIMEOUT, Adapter, AdapterError, ProviderRegistry
 from kalan.ai.jobs import JobRunner
 from kalan.amounts import month_key
 from kalan.api.errors import ApiError, error_response, install
 from kalan.config import Config
 from kalan.models import Direction, InstallmentInfo, ManualInstallment, Statement, Transaction
 from kalan.parsers import ParseError, StatementParser, UnknownFormatError
-from kalan.pipeline import parse_pdf
+from kalan.pdf import extract_text
+from kalan.pipeline import parse_text
+from kalan.redact import redact
 from kalan.schedule import build_schedule
 from kalan.store import DuplicateStatementError, Settings, Store
 from kalan.summary import attributed, monthly_summary, subscriptions
@@ -204,8 +207,41 @@ def create_app(
             raise ApiError(404, "statement_not_found", "No statement with this id.", {"id": statement_id})
         return st
 
+    def selected_adapter() -> Adapter:
+        provider_id = store.selected_provider()
+        if provider_id is None:
+            raise ApiError(409, "no_provider", "Choose an AI provider first (PUT /providers/selected).")
+        adapter = registry.get(provider_id)
+        detection = registry.detect_all().get(provider_id)
+        if adapter is None or detection is None or not detection.available:
+            raise ApiError(409, "provider_unavailable", "The selected provider is not available on this computer.",
+                           {"id": provider_id, "detail": detection.detail if detection else "unknown provider"})
+        return adapter
+
+    def ai_read(text: str) -> tuple[Statement, str]:
+        """AI fallback for a statement no parser recognised. Returns the statement and its redacted text."""
+        try:
+            adapter = selected_adapter()
+        except ApiError as exc:
+            raise ApiError(422, "unknown_format", "No supported bank statement format was recognised.",
+                           {"ai_fallback": exc.code}) from None
+        redacted = redact(text)
+        try:
+            st = reader.read_statement(adapter, redacted.text, redacted.card_last4, timeout=job_timeout)
+        except reader.TextTooLongError:
+            raise ApiError(422, "unknown_format", "No supported format was recognised and the statement is too "
+                           "long for the AI reader.", {"ai_fallback": "too_long"}) from None
+        except AdapterError as exc:
+            raise ApiError(502, "ai_fallback_failed", f"{adapter.name}: {exc}", {"provider": adapter.id}) from None
+        except reader.InvalidModelOutputError as exc:
+            raise ApiError(502, "ai_fallback_failed", f"{adapter.name} returned an invalid answer twice: {exc}",
+                           {"provider": adapter.id}) from None
+        return st, redacted.text
+
     @app.post("/statements", status_code=201)
-    def post_statement(file: Annotated[UploadFile, File()]) -> dict[str, Any]:
+    def post_statement(
+        file: Annotated[UploadFile, File()], ai_fallback: bool = True
+    ) -> dict[str, Any]:
         data = file.file.read(config.max_upload_bytes + 1)
         if len(data) > config.max_upload_bytes:
             raise ApiError(413, "file_too_large", "The file is larger than 10 MB.",
@@ -213,16 +249,25 @@ def create_app(
         if not data.startswith(PDF_MAGIC):
             raise ApiError(415, "not_pdf", "The file is not a PDF.")
         try:
-            st = parse_pdf(data)
-        except UnknownFormatError:
-            raise ApiError(422, "unknown_format", "No supported bank statement format was recognised.") from None
-        except ParseError:
-            raise ApiError(422, "parse_error", "The statement was recognised but could not be read.") from None
+            text = extract_text(data)
         except Exception as exc:  # broken or encrypted PDF
             log.info("upload rejected: %s", type(exc).__name__)
             raise ApiError(422, "invalid_pdf", "The PDF could not be opened.") from None
+        kept_text: str | None = None
         try:
-            saved = store.add_statement(st)
+            st = parse_text(text)
+        except UnknownFormatError:
+            if not ai_fallback:
+                raise ApiError(422, "unknown_format", "No supported bank statement format was recognised.",
+                               {"ai_fallback": "off"}) from None
+            st, kept_text = ai_read(text)
+        except ParseError:
+            raise ApiError(422, "parse_error", "The statement was recognised but could not be read.") from None
+        except Exception as exc:
+            log.info("upload rejected: %s", type(exc).__name__)
+            raise ApiError(422, "parse_error", "The statement was recognised but could not be read.") from None
+        try:
+            saved = store.add_statement(st, redacted_text=kept_text)
         except DuplicateStatementError as dup:
             raise ApiError(409, "duplicate", "This statement is already stored.",
                            {"statement_id": dup.existing_id}) from None
@@ -339,17 +384,25 @@ def create_app(
 
     # -- model analysis ---------------------------------------------------------------------------
 
+    @app.post("/statements/{statement_id}/template-draft")
+    def template_draft(statement_id: str) -> dict[str, Any]:
+        statement_or_404(statement_id)
+        text = store.statement_text(statement_id)
+        if text is None:
+            raise ApiError(409, "no_statement_text", "Only statements read by the AI fallback keep their text.",
+                           {"id": statement_id})
+        adapter = selected_adapter()
+        try:
+            result = reader.draft_template(adapter, text, timeout=job_timeout)
+        except AdapterError as exc:
+            raise ApiError(502, "provider_failed", f"{adapter.name}: {exc}", {"provider": adapter.id}) from None
+        log.info("template draft for %s via %s: valid=%s", statement_id, adapter.id, result["valid"])
+        return {"provider": adapter.id, **result}
+
     @app.post("/statements/{statement_id}/analyze", status_code=202)
     def analyze(statement_id: str) -> dict[str, Any]:
         statement_or_404(statement_id)
-        provider_id = store.selected_provider()
-        if provider_id is None:
-            raise ApiError(409, "no_provider", "Choose an AI provider first (PUT /providers/selected).")
-        adapter = registry.get(provider_id)
-        detection = registry.detect_all().get(provider_id)
-        if adapter is None or detection is None or not detection.available:
-            raise ApiError(409, "provider_unavailable", "The selected provider is not available on this computer.",
-                           {"id": provider_id, "detail": detection.detail if detection else "unknown provider"})
+        adapter = selected_adapter()
         job = runner.start(statement_id, adapter)
         return {"job_id": job.id, "status": job.status}
 

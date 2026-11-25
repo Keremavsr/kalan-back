@@ -119,8 +119,11 @@ class Store:
 
     # -- statements -------------------------------------------------------------------------------
 
-    def add_statement(self, st: Statement) -> Statement:
-        """Store a parsed statement. Raise :class:`DuplicateStatementError` if the period is already stored."""
+    def add_statement(self, st: Statement, redacted_text: str | None = None) -> Statement:
+        """Store a parsed statement. Raise :class:`DuplicateStatementError` if the period is already stored.
+
+        ``redacted_text`` (AI fallback only) is kept for a later template draft.
+        """
         data = st.model_dump(mode="json", exclude={"transactions", "analysis_status"})
         with self._tx() as con:
             row = con.execute(
@@ -138,7 +141,14 @@ class Store:
             )
             for pos, tx in enumerate(st.transactions):
                 self._insert_tx(con, tx, st.id, pos)
+            if redacted_text is not None:
+                con.execute("INSERT INTO statement_texts (statement_id, text) VALUES (?, ?)", (st.id, redacted_text))
         return self.get_statement(st.id)  # type: ignore[return-value]
+
+    def statement_text(self, statement_id: str) -> str | None:
+        with self._connect() as con:
+            row = con.execute("SELECT text FROM statement_texts WHERE statement_id = ?", (statement_id,)).fetchone()
+            return None if row is None else row["text"]
 
     @staticmethod
     def _insert_tx(con: sqlite3.Connection, tx: Transaction, statement_id: str | None, pos: int) -> None:

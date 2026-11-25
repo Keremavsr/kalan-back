@@ -316,7 +316,8 @@
             "description": "ELEKTROMARKET-ORNEK",
             "amount": 200000,
             "index": 5,
-            "count": 6
+            "count": 6,
+            "breakdown": null
           }
         ]
       },
@@ -329,7 +330,8 @@
             "description": "ELEKTROMARKET-ORNEK",
             "amount": 200000,
             "index": 6,
-            "count": 6
+            "count": 6,
+            "breakdown": null
           }
         ]
       },
@@ -393,7 +395,7 @@
         "amount_each": 200000,
         "ends": "2026-04",
         "total_remaining": 400000,
-        "components": null
+        "breakdown": null
       }
     ]
   }

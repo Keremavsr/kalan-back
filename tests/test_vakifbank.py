@@ -131,7 +131,7 @@ def _normalise_schedule(schedule: dict, ids: dict[str, str]) -> dict:
             {
                 "plan_key": key(p["plan_id"]), "description": p["description"], "kind": p["kind"],
                 "remaining_count": p["remaining_count"], "amount_each": p["amount_each"], "ends": p["ends"],
-                "total_remaining": p["total_remaining"], "components": p["components"],
+                "total_remaining": p["total_remaining"], "breakdown": p["breakdown"],
             }
             for p in schedule["plans"]
         ),

@@ -293,21 +293,29 @@
             "description": "ELEKTROMARKET-ORNEK",
             "amount": 200000,
             "index": 4,
-            "count": 6
+            "count": 6,
+            "breakdown": null
           },
           {
             "plan_key": "B",
             "description": "TELEFONCU-ORNEK",
             "amount": 150000,
             "index": 3,
-            "count": 3
+            "count": 3,
+            "breakdown": null
           },
           {
             "plan_key": "CA1",
             "description": "Mobil-Taksitli Nakit Avans",
             "amount": 362306,
             "index": 2,
-            "count": 3
+            "count": 3,
+            "breakdown": {
+              "principal": 339033,
+              "interest": 17901,
+              "bsmv": 2686,
+              "kkdf": 2686
+            }
           }
         ]
       },
@@ -320,14 +328,21 @@
             "description": "ELEKTROMARKET-ORNEK",
             "amount": 200000,
             "index": 5,
-            "count": 6
+            "count": 6,
+            "breakdown": null
           },
           {
             "plan_key": "CA1",
             "description": "Mobil-Taksitli Nakit Avans",
             "amount": 362306,
             "index": 3,
-            "count": 3
+            "count": 3,
+            "breakdown": {
+              "principal": 339033,
+              "interest": 17901,
+              "bsmv": 2686,
+              "kkdf": 2686
+            }
           }
         ]
       },
@@ -340,7 +355,8 @@
             "description": "ELEKTROMARKET-ORNEK",
             "amount": 200000,
             "index": 6,
-            "count": 6
+            "count": 6,
+            "breakdown": null
           }
         ]
       },
@@ -399,7 +415,7 @@
         "amount_each": 150000,
         "ends": "2026-02",
         "total_remaining": 150000,
-        "components": null
+        "breakdown": null
       },
       {
         "plan_key": "CA1",
@@ -409,11 +425,11 @@
         "amount_each": 362306,
         "ends": "2026-03",
         "total_remaining": 724612,
-        "components": {
-          "bsmv": 2686,
-          "principal": 339033,
-          "kkdf": 2686,
-          "interest": 17901
+        "breakdown": {
+          "principal": 678066,
+          "interest": 35802,
+          "bsmv": 5372,
+          "kkdf": 5372
         }
       },
       {
@@ -424,7 +440,7 @@
         "amount_each": 200000,
         "ends": "2026-04",
         "total_remaining": 600000,
-        "components": null
+        "breakdown": null
       }
     ]
   }

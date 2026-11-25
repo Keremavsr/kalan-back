@@ -247,14 +247,16 @@
             "description": "ELEKTROMARKET-ORNEK",
             "amount": 200000,
             "index": 3,
-            "count": 6
+            "count": 6,
+            "breakdown": null
           },
           {
             "plan_key": "B",
             "description": "TELEFONCU-ORNEK",
             "amount": 150000,
             "index": 2,
-            "count": 3
+            "count": 3,
+            "breakdown": null
           }
         ]
       },
@@ -267,14 +269,16 @@
             "description": "ELEKTROMARKET-ORNEK",
             "amount": 200000,
             "index": 4,
-            "count": 6
+            "count": 6,
+            "breakdown": null
           },
           {
             "plan_key": "B",
             "description": "TELEFONCU-ORNEK",
             "amount": 150000,
             "index": 3,
-            "count": 3
+            "count": 3,
+            "breakdown": null
           }
         ]
       },
@@ -287,7 +291,8 @@
             "description": "ELEKTROMARKET-ORNEK",
             "amount": 200000,
             "index": 5,
-            "count": 6
+            "count": 6,
+            "breakdown": null
           }
         ]
       },
@@ -300,7 +305,8 @@
             "description": "ELEKTROMARKET-ORNEK",
             "amount": 200000,
             "index": 6,
-            "count": 6
+            "count": 6,
+            "breakdown": null
           }
         ]
       },
@@ -354,7 +360,7 @@
         "amount_each": 150000,
         "ends": "2026-02",
         "total_remaining": 300000,
-        "components": null
+        "breakdown": null
       },
       {
         "plan_key": "A",
@@ -364,7 +370,7 @@
         "amount_each": 200000,
         "ends": "2026-04",
         "total_remaining": 800000,
-        "components": null
+        "breakdown": null
       }
     ]
   }

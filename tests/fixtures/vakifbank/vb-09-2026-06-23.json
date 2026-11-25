@@ -739,7 +739,13 @@
             "description": "Mobil-Taksitli Nakit Avans",
             "amount": 224096,
             "index": 3,
-            "count": 4
+            "count": 4,
+            "breakdown": {
+              "principal": 207821,
+              "interest": 12519,
+              "bsmv": 1878,
+              "kkdf": 1878
+            }
           }
         ]
       },
@@ -752,7 +758,13 @@
             "description": "Mobil-Taksitli Nakit Avans",
             "amount": 224096,
             "index": 4,
-            "count": 4
+            "count": 4,
+            "breakdown": {
+              "principal": 207821,
+              "interest": 12519,
+              "bsmv": 1878,
+              "kkdf": 1878
+            }
           }
         ]
       },
@@ -816,11 +828,11 @@
         "amount_each": 224096,
         "ends": "2026-08",
         "total_remaining": 448192,
-        "components": {
-          "bsmv": 1878,
-          "principal": 207821,
-          "kkdf": 1878,
-          "interest": 12519
+        "breakdown": {
+          "principal": 415642,
+          "interest": 25038,
+          "bsmv": 3756,
+          "kkdf": 3756
         }
       }
     ]

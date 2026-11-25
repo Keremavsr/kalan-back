@@ -10,7 +10,8 @@ Rules:
 * A plan whose latest rows carry ``is_last`` (``Son Taksit``, an early payoff, or no remaining cell)
   is finished and projects nothing.
 * For an installment cash advance the amount of one future installment is the sum of all its
-  components (principal + BSMV + KKDF + vade farkı) printed in the remaining cells.
+  components (principal + BSMV + KKDF + vade farkı) printed in the remaining cells; each item and
+  plan carries that split as ``breakdown`` (``null`` for purchases).
 * Manual plans (``ManualInstallment``) join the same projection.
 
 Everything here is integer arithmetic on minor units.
@@ -32,12 +33,29 @@ from kalan.models import ManualInstallment, Statement, Transaction
 DEFAULT_MONTHS = 12
 
 
+class Breakdown(BaseModel):
+    """Parts of a cash advance installment (minor units); they sum to the installment amount."""
+
+    principal: int
+    interest: int
+    bsmv: int
+    kkdf: int
+
+    def total(self) -> int:
+        return self.principal + self.interest + self.bsmv + self.kkdf
+
+    def times(self, n: int) -> Breakdown:
+        return Breakdown(principal=self.principal * n, interest=self.interest * n, bsmv=self.bsmv * n,
+                         kkdf=self.kkdf * n)
+
+
 class ScheduleItem(BaseModel):
     plan_id: str
     description: str
     amount: int
     index: int | None = None
     count: int | None = None
+    breakdown: Breakdown | None = Field(default=None, description="null for plain purchases")
 
 
 class ScheduleMonth(BaseModel):
@@ -55,7 +73,7 @@ class PlanSummary(BaseModel):
     ends: str
     total_remaining: int
     source: Literal["statement", "manual"] = "statement"
-    components: dict[str, int] | None = None
+    breakdown: Breakdown | None = Field(default=None, description="Parts of total_remaining; null for purchases")
     last_statement_id: str | None = None
 
 
@@ -131,6 +149,21 @@ def _state_from_rows(statement: Statement, plan_id: str, rows: list[Transaction]
         closed=closed,
         components=components,
     )
+
+
+def _breakdown(s: PlanState) -> Breakdown | None:
+    if s.kind != "cash_advance":
+        return None
+    if not s.components:  # manual cash advance: no split known, all principal
+        return Breakdown(principal=s.amount_each, interest=0, bsmv=0, kkdf=0)
+    b = Breakdown(
+        principal=s.components.get("principal", 0),
+        interest=s.components.get("interest", 0),
+        bsmv=s.components.get("bsmv", 0),
+        kkdf=s.components.get("kkdf", 0),
+    )
+    assert b.total() == s.amount_each
+    return b
 
 
 def plan_states(statements: list[Statement]) -> dict[str, PlanState]:
@@ -212,12 +245,13 @@ def build_schedule(
             future.append((mk, s.index + i if s.index is not None else None))
         if not future:
             continue
+        each_breakdown = _breakdown(s)
         for mk, idx in future:
             if mk in month_items:
                 month_items[mk].append(
                     ScheduleItem(
                         plan_id=s.plan_id, description=s.description, amount=s.amount_each, index=idx,
-                        count=s.total_count,
+                        count=s.total_count, breakdown=each_breakdown,
                     )
                 )
         plans.append(
@@ -230,7 +264,7 @@ def build_schedule(
                 ends=future[-1][0],
                 total_remaining=len(future) * s.amount_each,
                 source=s.source,
-                components=s.components,
+                breakdown=each_breakdown.times(len(future)) if each_breakdown else None,
                 last_statement_id=s.statement_id,
             )
         )

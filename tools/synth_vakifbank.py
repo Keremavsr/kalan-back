@@ -418,6 +418,12 @@ def simulate() -> list[StatementSim]:
     return sims
 
 
+def _bd(comps: dict[str, int] | None, n: int) -> dict[str, int] | None:
+    if comps is None:
+        return None
+    return {part: comps[part] * n for part in ("principal", "interest", "bsmv", "kkdf")}
+
+
 def expected_schedule(k: int, cut: date, months: int = 12) -> dict:
     month = f"{cut.year:04d}-{cut.month:02d}"
     window = [add_months(month, i) for i in range(1, months + 1)]
@@ -441,10 +447,11 @@ def expected_schedule(k: int, cut: date, months: int = 12) -> dict:
             m = add_months(month, i)
             if m in items:
                 items[m].append({"plan_key": key, "description": desc, "amount": each, "index": idx + i,
-                                 "count": count})
+                                 "count": count, "breakdown": _bd(comps, 1)})
         out_plans.append({
             "plan_key": key, "description": desc, "kind": kind, "remaining_count": remaining, "amount_each": each,
-            "ends": add_months(month, remaining), "total_remaining": remaining * each, "components": comps,
+            "ends": add_months(month, remaining), "total_remaining": remaining * each,
+            "breakdown": _bd(comps, remaining),
         })
     return {
         "start_month": window[0],

@@ -298,14 +298,21 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 2,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           },
           {
             "plan_key": "CA2",
             "description": "Mobil-Taksitli Nakit Avans",
             "amount": 222876,
             "index": 4,
-            "count": 4
+            "count": 4,
+            "breakdown": {
+              "principal": 211886,
+              "interest": 8454,
+              "bsmv": 1268,
+              "kkdf": 1268
+            }
           }
         ]
       },
@@ -318,7 +325,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 3,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -331,7 +339,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 4,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -344,7 +353,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 5,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -357,7 +367,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 6,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -370,7 +381,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 7,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -383,7 +395,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 8,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -396,7 +409,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 9,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -409,7 +423,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 10,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -422,7 +437,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 11,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -435,7 +451,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 12,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -454,11 +471,11 @@
         "amount_each": 222876,
         "ends": "2026-08",
         "total_remaining": 222876,
-        "components": {
-          "bsmv": 1268,
+        "breakdown": {
           "principal": 211886,
-          "kkdf": 1268,
-          "interest": 8454
+          "interest": 8454,
+          "bsmv": 1268,
+          "kkdf": 1268
         }
       },
       {
@@ -469,7 +486,7 @@
         "amount_each": 200000,
         "ends": "2027-06",
         "total_remaining": 2200000,
-        "components": null
+        "breakdown": null
       }
     ]
   }

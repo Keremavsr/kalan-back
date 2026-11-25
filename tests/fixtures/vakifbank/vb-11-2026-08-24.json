@@ -256,7 +256,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 3,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -269,7 +270,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 4,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -282,7 +284,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 5,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -295,7 +298,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 6,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -308,7 +312,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 7,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -321,7 +326,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 8,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -334,7 +340,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 9,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -347,7 +354,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 10,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -360,7 +368,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 11,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -373,7 +382,8 @@
             "description": "MOBILYA-ORNEK",
             "amount": 200000,
             "index": 12,
-            "count": 12
+            "count": 12,
+            "breakdown": null
           }
         ]
       },
@@ -397,7 +407,7 @@
         "amount_each": 200000,
         "ends": "2027-06",
         "total_remaining": 2000000,
-        "components": null
+        "breakdown": null
       }
     ]
   }

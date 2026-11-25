@@ -37,6 +37,7 @@ def test_purchase_projection_and_latest_wins():
     assert [(i.index, i.count) for m in s.months for i in m.items] == [(4, 6), (5, 6), (6, 6)]
     (plan,) = s.plans
     assert (plan.remaining_count, plan.amount_each, plan.ends, plan.total_remaining) == (3, 50000, "2027-01", 150000)
+    assert plan.breakdown is None and all(i.breakdown is None for m in s.months for i in m.items)
 
 
 def test_last_installment_ends_plan():
@@ -58,7 +59,11 @@ def test_cash_advance_components_summed():
     (plan,) = s.plans
     assert plan.kind == "cash_advance"
     assert plan.amount_each == 100000
-    assert plan.components == {"principal": 95000, "bsmv": 500, "kkdf": 500, "interest": 4000}
+    assert plan.breakdown.model_dump() == {"principal": 190000, "interest": 8000, "bsmv": 1000, "kkdf": 1000}
+    assert plan.breakdown.total() == plan.total_remaining
+    item = s.months[0].items[0]
+    assert item.breakdown.model_dump() == {"principal": 95000, "interest": 4000, "bsmv": 500, "kkdf": 500}
+    assert item.breakdown.total() == item.amount
     assert [m.total for m in s.months] == [100000, 100000, 0]
     assert plan.description == "Mobil-Taksitli Nakit Avans"
 

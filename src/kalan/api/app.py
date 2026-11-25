@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 import kalan
-from kalan import pdf_passwords
+from kalan import gate, pdf_passwords
 from kalan.ai import reader
 from kalan.ai.adapters import DEFAULT_TIMEOUT, Adapter, AdapterError, ProviderRegistry
 from kalan.ai.jobs import JobRunner
@@ -286,6 +286,24 @@ def create_app(
             log.info("upload rejected: %s", type(exc).__name__)
             raise ApiError(422, "invalid_pdf", "The PDF could not be opened.") from None
 
+    def save_gate(st: Statement) -> Statement:
+        """Run :func:`kalan.gate.check`: hard findings block the save, soft ones mark it for review."""
+        issues = gate.check(st, store.all_statements())
+        blocking = gate.hard(issues)
+        found = [i.model_dump(mode="json") for i in issues]
+        log.info("save gate: %s", ",".join(i.code for i in issues) or "clean")
+        dup = next((i for i in blocking if i.code == "duplicate_statement"), None)
+        if dup is not None:  # v0.2.0 contract: 409 duplicate with the stored statement's id
+            raise ApiError(409, "duplicate", "This statement is already stored.",
+                           {"statement_id": dup.details["statement_id"]})
+        if blocking:
+            raise ApiError(422, "save_blocked", "The statement was read but failed the checks before saving.",
+                           {"issues": found})
+        review = gate.soft(issues)
+        if not review:
+            return st
+        return st.model_copy(update={"needs_review": True, "review": review})
+
     @app.post("/statements", status_code=201)
     def post_statement(
         file: Annotated[UploadFile, File()],
@@ -315,6 +333,7 @@ def create_app(
         except Exception as exc:
             log.info("upload rejected: %s", type(exc).__name__)
             raise ApiError(422, "parse_error", "The statement was recognised but could not be read.") from None
+        st = save_gate(st)
         try:
             saved = store.add_statement(st, redacted_text=kept_text)
         except DuplicateStatementError as dup:

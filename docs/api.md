@@ -1,7 +1,8 @@
 # kalan API contract v0.3.0
 
-Changes from v0.2.0: encrypted PDFs (`password` / `remember_password` on `POST /statements`, `/pdf-passwords`).
-Every v0.2.0 route and field is unchanged.
+Changes from v0.2.0: encrypted PDFs (`password` / `remember_password` on `POST /statements`, `/pdf-passwords`);
+save gate (422 `save_blocked`, `review` on statements, see "Save gate"). Every v0.2.0 route and field is unchanged;
+`needs_review` is now also set by soft save-gate findings, not only by the AI fallback.
 
 Changes from v0.1.1: AI fallback reader and `needs_review` on statements, `POST /statements/{id}/template-draft`
 (see "Statements"); CSV/OFX/QIF imports (`source: "import"`); `POST /simulate/installment`; `GET /alerts`;
@@ -58,8 +59,33 @@ Errors: `{"error": {"code": "string_code", "message": "human text", "details": {
 {"id":"st_01","bank":"vakifbank","product":"Worldcard","card_last4":"0000","period_start":"2026-08-26","period_end":"2026-09-25",
  "due_date":"2026-10-05","currency":"TRY","statement_total":0,"minimum_payment":0,
  "reconciliation":{"status":"ok|mismatch","expected":123456,"computed":123456,"difference":0},
- "analysis_status":"none|pending|done|failed","needs_review":false}
+ "analysis_status":"none|pending|done|failed","needs_review":false,
+ "review":[{"code":"reconciliation_mismatch","severity":"soft","message":"text","details":{"difference":-1}}]}
 ```
+`review` (v0.3.0) lists the soft save-gate findings; empty for a clean statement.
+
+### Save gate (v0.3.0)
+Before `POST /statements` stores a parsed statement, code checks it. A **hard** finding blocks the save: 422
+`save_blocked` with `details.issues` = `[GateIssue]` (all findings, hard and soft); a duplicate keeps the v0.2.0
+answer, 409 `duplicate` with `details.statement_id`. Only **soft** findings: saved with `needs_review: true` and the
+findings in `review`. `GateIssue` = `{"code","severity":"hard|soft","message","details":{}}`.
+
+| Code | Severity | Meaning, `details` |
+|------|----------|--------------------|
+| `duplicate_statement` | hard | Same bank + card + period (or id) already stored (answered as 409 `duplicate`). `statement_id` |
+| `period_invalid` | hard | Period starts after it ends. `period_start`, `period_end` |
+| `due_before_cut_off` | hard | Due date before the cut-off date. `period_end`, `due_date` |
+| `no_transactions` | hard | No rows read but the total is not zero. |
+| `amount_scale` | hard | A total and its rows differ by a factor of 10, 100 or 1000 (decimal separator read wrong). `checks`, `factor` |
+| `period_unusual` | soft | Period shorter than 20 or longer than 45 days. `days` |
+| `not_reconciled` | soft | No reconciliation was run. |
+| `reconciliation_mismatch` | soft | Rows do not add up to the printed totals. `difference`, `checks` (failed check names) |
+| `no_printed_summary` | soft | No totals block found; only `statement_total` was checked. |
+| `rows_after_cut_off` | soft | Rows dated more than 3 days after the cut-off. `count` |
+| `minimum_above_total` | soft | Minimum payment larger than the statement total. |
+| `installment_counter` | soft | A row's installment number, plan length and remaining count disagree. `transaction_ids` |
+| `installment_sequence` | soft | A plan's installment number does not follow the previous statement's (same card, ended at most 45 days before). `plan_ids`, `previous_statement_id` |
+| `installment_missing` | soft | A plan still running in the previous statement is absent (early payoff, or a row not read). `plan_ids`, `previous_statement_id` |
 `Statement` = `StatementSummary` + `"transactions":[Transaction]` + `"interest_rates":{"purchase_monthly":"3.25", ...}` (strings, as printed)
 + `"parser_id":"tr_vakifbank_worldcard|<template id>|ai-fallback"` and optional parsed extras (`credit_limit`,
 `next_period_end`, `next_due_date`, `printed_summary`, `page_count`).

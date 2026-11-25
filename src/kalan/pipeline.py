@@ -23,5 +23,6 @@ def parse_text(text: str) -> Statement:
     return statement.model_copy(update={"reconciliation": reconcile(statement)})
 
 
-def parse_pdf(source: str | Path | bytes) -> Statement:
-    return parse_text(extract_text(source))
+def parse_pdf(source: str | Path | bytes, password: str | None = None) -> Statement:
+    """Parse a statement PDF. An encrypted one needs ``password`` (:class:`kalan.pdf.PasswordError` otherwise)."""
+    return parse_text(extract_text(source, password=password))

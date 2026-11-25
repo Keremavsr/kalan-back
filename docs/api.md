@@ -1,4 +1,7 @@
-# kalan API contract v0.2.0
+# kalan API contract v0.3.0
+
+Changes from v0.2.0: encrypted PDFs (`password` / `remember_password` on `POST /statements`, `/pdf-passwords`).
+Every v0.2.0 route and field is unchanged.
 
 Changes from v0.1.1: AI fallback reader and `needs_review` on statements, `POST /statements/{id}/template-draft`
 (see "Statements"); CSV/OFX/QIF imports (`source: "import"`); `POST /simulate/installment`; `GET /alerts`;
@@ -18,6 +21,15 @@ Errors: `{"error": {"code": "string_code", "message": "human text", "details": {
 ## Statements
 - `POST /statements?ai_fallback=true|false` multipart `file` (PDF, max 10 MB). Redacts, detects the bank parser or
   template, parses, stores. -> 201 `Statement`. 409 `duplicate` if same bank+card_last4+period already stored.
+  Encrypted PDFs (v0.3.0): optional multipart form fields `password` (max 200 characters) and
+  `remember_password=true|false`. Without `password` kalan tries the passwords remembered in the OS keyring.
+  - 422 `pdf_password_required`: encrypted and no password given (or no remembered one opens it).
+  - 422 `pdf_password_wrong`: the given password does not open it.
+  Both carry `details.hints` = `[{"bank":"garanti","hint":"last 6 digits of your national ID"}]` from the bank
+  templates (the bank is unknown until the PDF opens, so every hint is listed). With `remember_password=true` and a
+  `password` that opened a statement read by a bank parser or template, the password is stored in the OS keyring for
+  that statement's `bank`; the 201 response then has header `X-Kalan-Password-Remembered: true|false` (`false`: no
+  keyring, or the statement was read by the AI fallback). The password never reaches SQLite, a log or a response.
   When no parser or template matches (v0.2.0):
   - `ai_fallback=true` (default) and a provider is selected and available: the redacted page text goes to that
     provider, which transcribes it into strict JSON (header fields, rows, printed totals). Code turns it into a
@@ -33,6 +45,10 @@ Errors: `{"error": {"code": "string_code", "message": "human text", "details": {
   on the same text. `valid:false` with `errors` if the draft still does not validate after one retry. 409
   `no_statement_text` for a statement that was not read by the fallback, 409 `no_provider` / `provider_unavailable`,
   502 `provider_failed`. Synchronous like the fallback.
+- `GET /pdf-passwords` (v0.3.0) -> `{"keyring":true,"items":[{"bank":"garanti","hint":"text"|null,"remembered":false}]}`,
+  one item per known bank; never a password.
+- `PUT /pdf-passwords/{bank}` (v0.3.0) body `{"password":"..."}` -> 204. 404 `unknown_bank`, 503 `keyring_unavailable`.
+- `DELETE /pdf-passwords/{bank}` (v0.3.0) -> 204. 404 `not_remembered`.
 - `GET /statements` -> `{"items":[StatementSummary]}` newest first.
 - `GET /statements/{id}` -> `Statement`
 - `DELETE /statements/{id}` -> 204

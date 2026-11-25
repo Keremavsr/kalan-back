@@ -49,6 +49,7 @@ schema` prints it; point your editor's YAML plugin at it for completion). The wo
 | `kinds` | Ordered rules: `match` (regex on the folded description), optional `credit` and `installment` conditions, then `kind`, optional `direction` and `component` (roles of an installment cash advance: `principal`, `bsmv`, `kkdf`, `interest`, `early_payoff`). First match wins; then unmatched credits get `credit_kind`, the rest `default_kind`. |
 | `summary` | The printed totals block: `title`, `layout` and labels for `previous_balance`, `period_transactions`, `interest_and_fees`, `payments`, `statement_total`. kalan checks the parsed rows against them. |
 | `rates` | Optional interest-rate block. |
+| `password_hint` | Optional. What the bank uses as the PDF password ("last 6 digits of your national ID"), shown when an encrypted statement needs one. Never a password. |
 
 Labels and `match` regexes are compared after `fold()`: lower case, no diacritics, Turkish dotted and
 undotted I unified, spaces collapsed. Write `odemeniz icin tesekkurler`, not `ÖDEMENİZ İÇİN TEŞEKKÜRLER`.

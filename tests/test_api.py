@@ -303,6 +303,12 @@ def test_cors_preflight_with_private_network(client):
     assert resp.headers["access-control-allow-private-network"] == "true"
 
 
+def test_cors_exposes_headers_the_front_end_reads(client):
+    resp = client.get("/health", headers={"Origin": "http://127.0.0.1:5173"})
+    exposed = {h.strip().lower() for h in resp.headers["access-control-expose-headers"].split(",")}
+    assert {"x-kalan-password-remembered", "x-kalan-skipped-rows", "content-disposition"} <= exposed
+
+
 def test_cors_rejects_other_origins(client):
     resp = client.options("/statements", headers={
         "Origin": "https://evil.example", "Access-Control-Request-Method": "POST"})

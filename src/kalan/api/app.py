@@ -176,7 +176,7 @@ def create_app(
         "allow_origins": config.cors_origins,
         "allow_methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["*"],
-        "expose_headers": [PASSWORD_REMEMBERED_HEADER],
+        "expose_headers": [PASSWORD_REMEMBERED_HEADER, "X-Kalan-Skipped-Rows", "Content-Disposition"],
         "max_age": 600,
     }
     native_pna = "allow_private_network" in inspect.signature(CORSMiddleware.__init__).parameters

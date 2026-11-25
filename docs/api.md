@@ -200,3 +200,24 @@ prompt the user copies or sends themselves.
   `currency`, and the sentence and bars show rounded amounts. The card never contains merchant names, plan
   descriptions, bank names or card numbers; the SVG uses system fonts only and loads nothing from the network.
 - `GET /insights/share-card.svg?locale=tr|en&amounts=false` -> the same SVG as `image/svg+xml` (1200 x 630).
+
+### Open period and next statement forecast (`kalan.insights.forecast.next_statement_forecast`, `backtest`)
+- `GET /insights/forecast?include_fixed=true` ->
+```json
+{"open_period":{"from":"2099-05-16","to":"2099-05-25","transactions":[Transaction],"debit_total":35000,"credit_total":0},
+ "forecast":{"month":"2099-06","currency":"TRY","total":144999,
+   "parts":{"installments":10000,"subscriptions":4999,"variable":30000,"fixed":100000},"include_fixed":true,
+   "variable_basis":{"months":["2099-01","..."],"median":30000,"known_in_month":0},
+   "installment_items":[ScheduleItem],"subscriptions":[{"merchant","amount"}]},
+ "backtest":{"currency","count":3,"mae":20000,"mape":"0.36","bias":-20000,"min_history":2}}
+```
+  The forecast month is the one after the latest cut-off. `open_period` lists manual and imported rows dated after
+  that cut-off. Parts: installments already scheduled for the month, the last amount of every subscription seen in
+  the latest month, fixed costs due that month (counted in `total` only with `include_fixed=true`, since they may not
+  be paid by card), and `variable` = the median of the other spend (spend minus installment and subscription rows) of
+  up to 6 earlier months, at least what is already known for the month. Spend follows the monthly summary rule.
+- `GET /insights/forecast/backtest?include_fixed=true&history=6&min_history=2` -> the same summary plus
+  `"months":[{"month","forecast","actual","error","parts"}]`: every past statement month with at least `min_history`
+  earlier statement months is forecast from earlier data only. `mae` mean absolute error (minor units), `mape` mean
+  of |error| / actual over months with spend, `bias` mean signed error (positive = forecast too high); all `null`
+  when no month qualifies.

@@ -9,8 +9,10 @@ from fastapi import APIRouter, Query, Request, Response
 
 from kalan.ai.adapters import DEFAULT_TIMEOUT, Adapter, AdapterError
 from kalan.api.errors import ApiError
+from kalan.imports import import_plans
 from kalan.insights.card_fee import find_card_fees, placeholders_kept, refund_letter_prompt
 from kalan.insights.context import current_schedule, rule_overrides
+from kalan.insights.forecast import DEFAULT_HISTORY, MIN_HISTORY, backtest, next_statement_forecast
 from kalan.insights.minimum import latest_statement, minimum_payment_plan
 from kalan.insights.rules import OVERRIDES_KEY, RuleOverrides, card_rules
 from kalan.insights.share_card import CardLocale, load_card, load_svg
@@ -139,3 +141,34 @@ def share_card(request: Request, locale: CardLocale = "tr", amounts: bool = Fals
 def share_card_svg(request: Request, locale: CardLocale = "tr", amounts: bool = False) -> Response:
     svg = load_svg(current_schedule(_store(request), 12), locale, amounts)
     return Response(svg, media_type="image/svg+xml")
+
+
+# -- 5. open period and next statement forecast -----------------------------------------------------
+
+
+def _forecast_inputs(store: Store) -> dict[str, Any]:
+    return {
+        "statements": store.all_statements(),
+        "loose": store.loose_transactions(),
+        "currency": store.get_settings().base_currency,
+        "manual_plans": store.manual_plans(),
+        "imported_plans": import_plans(store.import_transactions()),
+        "fixed_costs": store.fixed_costs(),
+        "model_recurring": store.model_recurring_ids(),
+    }
+
+
+@router.get("/forecast")
+def forecast(request: Request, include_fixed: bool = True) -> dict[str, Any]:
+    return next_statement_forecast(**_forecast_inputs(_store(request)), include_fixed=include_fixed)
+
+
+@router.get("/forecast/backtest")
+def forecast_backtest(
+    request: Request,
+    include_fixed: bool = True,
+    history: Annotated[int, Query(ge=1, le=36)] = DEFAULT_HISTORY,
+    min_history: Annotated[int, Query(ge=1, le=36)] = MIN_HISTORY,
+) -> dict[str, Any]:
+    return backtest(**_forecast_inputs(_store(request)), include_fixed=include_fixed, history=history,
+                    min_history=min_history)

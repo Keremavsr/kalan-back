@@ -1,0 +1,215 @@
+{
+  "synthetic": true,
+  "scenarios": [
+    "installment start",
+    "foreign currency",
+    "table over a page break"
+  ],
+  "statement": {
+    "bank": "garanti",
+    "product": "Bonus",
+    "parser_id": "tr_garanti_bonus",
+    "card_last4": "1111",
+    "period_start": "2026-03-26",
+    "period_end": "2026-04-26",
+    "due_date": "2026-05-06",
+    "currency": "TRY",
+    "statement_total": 549677,
+    "minimum_payment": 219900,
+    "credit_limit": 12000000,
+    "next_period_end": "2026-05-25",
+    "next_due_date": "2026-06-04",
+    "page_count": 3,
+    "interest_rates": {
+      "purchase_monthly": "3.11",
+      "purchase_late_monthly": "3.41",
+      "cash_advance_monthly": "4.02",
+      "over_limit_monthly": "3.11",
+      "cash_advance_late_monthly": "4.32",
+      "purchase_yearly": "37.32",
+      "purchase_late_yearly": "40.92",
+      "cash_advance_yearly": "48.24",
+      "over_limit_yearly": "37.32",
+      "cash_advance_late_yearly": "51.84"
+    },
+    "printed_summary": {
+      "previous_balance": 0,
+      "period_transactions": 549677,
+      "interest_and_fees": 0,
+      "payments": 0,
+      "statement_total": 549677,
+      "remaining_installments": null
+    }
+  },
+  "transactions": [
+    {
+      "date": "2026-03-25",
+      "description": "ÖNCEKİ DÖNEMDEN DEVİR EDİLEN TUTAR",
+      "amount": 0,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "carry_over",
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-03-27",
+      "description": "ORNEKPAY    *ORNEKCARSI",
+      "amount": 12950,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEKPAY *ORNEKCARSI",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": "0,64",
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-03-29",
+      "description": "ORNEKMARKET-0001-MERKEZ",
+      "amount": 254715,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEKMARKET-0001-MERKEZ",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": "12,73",
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-04-22",
+      "description": "ORNEK ELEKTRONIK AVM",
+      "amount": 150000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "merchant": "ORNEK ELEKTRONIK AVM",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": "7,50",
+      "detail": null,
+      "installment": {
+        "remaining_count": 5,
+        "remaining_amount_each": 150000,
+        "is_last": false,
+        "index": 1,
+        "total_count": 6,
+        "component": null,
+        "plan_key": "P1"
+      }
+    },
+    {
+      "date": "2026-03-29",
+      "description": "ORNEK KAHVE EVI",
+      "amount": 31740,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK KAHVE EVI",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-03-29",
+      "description": "DENEME PAZARI",
+      "amount": 26464,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "DENEME PAZARI",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-03-29",
+      "description": "ORNEK TAKSI POS",
+      "amount": 10350,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK TAKSI POS",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-04-04",
+      "description": "ORNEK ULASIM KART",
+      "amount": 21146,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK ULASIM KART",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-04-09",
+      "description": "ORNEKGAMES.COM 1234567",
+      "amount": 42312,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEKGAMES.COM 1234567",
+      "source": "statement",
+      "original_amount": 1234,
+      "original_currency": "USD",
+      "points": null,
+      "detail": null,
+      "installment": null
+    }
+  ],
+  "expected_reconciliation": {
+    "status": "ok",
+    "expected": 549677,
+    "computed": 549677,
+    "difference": 0,
+    "checks": [
+      "period_transactions",
+      "interest_and_fees",
+      "payments",
+      "previous_balance",
+      "printed_summary_arithmetic",
+      "statement_total"
+    ],
+    "buckets": {
+      "carry_over": 0,
+      "period": 549677,
+      "interest_and_fees": 0,
+      "payments": 0
+    }
+  },
+  "open_plans": {
+    "P1": {
+      "remaining_count": 5,
+      "amount_each": 150000
+    }
+  }
+}

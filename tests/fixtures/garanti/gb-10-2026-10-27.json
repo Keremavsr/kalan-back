@@ -1,0 +1,271 @@
+{
+  "synthetic": true,
+  "scenarios": [
+    "virtual card section",
+    "table over a page break"
+  ],
+  "statement": {
+    "bank": "garanti",
+    "product": "Bonus",
+    "parser_id": "tr_garanti_bonus",
+    "card_last4": "1111",
+    "period_start": "2026-09-26",
+    "period_end": "2026-10-27",
+    "due_date": "2026-11-06",
+    "currency": "TRY",
+    "statement_total": 435261,
+    "minimum_payment": 174100,
+    "credit_limit": 12000000,
+    "next_period_end": "2026-11-26",
+    "next_due_date": "2026-12-06",
+    "page_count": 3,
+    "interest_rates": {
+      "purchase_monthly": "3.11",
+      "purchase_late_monthly": "3.41",
+      "cash_advance_monthly": "4.02",
+      "over_limit_monthly": "3.11",
+      "cash_advance_late_monthly": "4.32",
+      "purchase_yearly": "37.32",
+      "purchase_late_yearly": "40.92",
+      "cash_advance_yearly": "48.24",
+      "over_limit_yearly": "37.32",
+      "cash_advance_late_yearly": "51.84"
+    },
+    "printed_summary": {
+      "previous_balance": 1263912,
+      "period_transactions": 435261,
+      "interest_and_fees": 0,
+      "payments": 1263912,
+      "statement_total": 435261,
+      "remaining_installments": null
+    }
+  },
+  "transactions": [
+    {
+      "date": "2026-09-25",
+      "description": "ÖNCEKİ DÖNEMDEN DEVİR EDİLEN TUTAR",
+      "amount": 1263912,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "carry_over",
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-10-05",
+      "description": "ÖDEMENİZ İÇİN TEŞEKKÜR EDERİZ",
+      "amount": 1263912,
+      "currency": "TRY",
+      "direction": "credit",
+      "kind": "payment",
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-09-27",
+      "description": "DENEME KASAP",
+      "amount": 115775,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "DENEME KASAP",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": "5,78",
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-09-29",
+      "description": "ORNEK YEMEK SIPARIS",
+      "amount": 63596,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK YEMEK SIPARIS",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": "3,17",
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-09-29",
+      "description": "ORNEK KAHVE EVI",
+      "amount": 18081,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK KAHVE EVI",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-10-21",
+      "description": "DENEME MOBILYA",
+      "amount": 100000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "merchant": "DENEME MOBILYA",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": {
+        "remaining_count": 1,
+        "remaining_amount_each": 100000,
+        "is_last": false,
+        "index": 2,
+        "total_count": 3,
+        "component": null,
+        "plan_key": "P2"
+      }
+    },
+    {
+      "date": "2026-10-21",
+      "description": "DENEME MOBILYA",
+      "amount": 50000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "merchant": "DENEME MOBILYA",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": {
+        "remaining_count": 1,
+        "remaining_amount_each": 50000,
+        "is_last": false,
+        "index": 2,
+        "total_count": 3,
+        "component": null,
+        "plan_key": "P4"
+      }
+    },
+    {
+      "date": "2026-09-29",
+      "description": "DENEME PAZARI",
+      "amount": 38667,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "DENEME PAZARI",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-09-29",
+      "description": "ORNEK TAKSI POS",
+      "amount": 17989,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK TAKSI POS",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-10-05",
+      "description": "ORNEK ULASIM KART",
+      "amount": 12655,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK ULASIM KART",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-10-14",
+      "description": "ORNEK DIJITAL ABONELIK",
+      "amount": 14999,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK DIJITAL ABONELIK",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-10-15",
+      "description": "DENEME UYGULAMA MAGAZASI",
+      "amount": 3499,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "DENEME UYGULAMA MAGAZASI",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    }
+  ],
+  "expected_reconciliation": {
+    "status": "ok",
+    "expected": 435261,
+    "computed": 435261,
+    "difference": 0,
+    "checks": [
+      "period_transactions",
+      "interest_and_fees",
+      "payments",
+      "previous_balance",
+      "printed_summary_arithmetic",
+      "statement_total"
+    ],
+    "buckets": {
+      "carry_over": 1263912,
+      "period": 435261,
+      "interest_and_fees": 0,
+      "payments": 1263912
+    }
+  },
+  "open_plans": {
+    "P2": {
+      "remaining_count": 1,
+      "amount_each": 100000
+    },
+    "P4": {
+      "remaining_count": 1,
+      "amount_each": 50000
+    }
+  }
+}

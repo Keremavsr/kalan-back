@@ -1,0 +1,95 @@
+{
+  "synthetic": true,
+  "scenarios": [
+    "zero balance"
+  ],
+  "statement": {
+    "bank": "garanti",
+    "product": "Bonus",
+    "parser_id": "tr_garanti_bonus",
+    "card_last4": "1111",
+    "period_start": "2026-02-26",
+    "period_end": "2026-03-25",
+    "due_date": "2026-04-04",
+    "currency": "TRY",
+    "statement_total": 0,
+    "minimum_payment": 0,
+    "credit_limit": 12000000,
+    "next_period_end": "2026-04-26",
+    "next_due_date": "2026-05-06",
+    "page_count": 2,
+    "interest_rates": {
+      "purchase_monthly": "3.11",
+      "purchase_late_monthly": "3.41",
+      "cash_advance_monthly": "4.02",
+      "over_limit_monthly": "3.11",
+      "cash_advance_late_monthly": "4.32",
+      "purchase_yearly": "37.32",
+      "purchase_late_yearly": "40.92",
+      "cash_advance_yearly": "48.24",
+      "over_limit_yearly": "37.32",
+      "cash_advance_late_yearly": "51.84"
+    },
+    "printed_summary": {
+      "previous_balance": 526999,
+      "period_transactions": 0,
+      "interest_and_fees": 0,
+      "payments": 526999,
+      "statement_total": 0,
+      "remaining_installments": null
+    }
+  },
+  "transactions": [
+    {
+      "date": "2026-02-25",
+      "description": "ÖNCEKİ DÖNEMDEN DEVİR EDİLEN TUTAR",
+      "amount": 526999,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "carry_over",
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-03-07",
+      "description": "ÖDEMENİZ İÇİN TEŞEKKÜR EDERİZ",
+      "amount": 526999,
+      "currency": "TRY",
+      "direction": "credit",
+      "kind": "payment",
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    }
+  ],
+  "expected_reconciliation": {
+    "status": "ok",
+    "expected": 0,
+    "computed": 0,
+    "difference": 0,
+    "checks": [
+      "period_transactions",
+      "interest_and_fees",
+      "payments",
+      "previous_balance",
+      "printed_summary_arithmetic",
+      "statement_total"
+    ],
+    "buckets": {
+      "carry_over": 526999,
+      "period": 0,
+      "interest_and_fees": 0,
+      "payments": 526999
+    }
+  },
+  "open_plans": {}
+}

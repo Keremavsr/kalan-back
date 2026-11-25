@@ -1,0 +1,226 @@
+{
+  "synthetic": true,
+  "scenarios": [
+    "plan C continues beyond the last statement"
+  ],
+  "statement": {
+    "bank": "yapikredi",
+    "product": "World",
+    "parser_id": "tr_yapikredi_world",
+    "card_last4": "4321",
+    "period_start": "2026-10-29",
+    "period_end": "2026-11-28",
+    "due_date": "2026-12-08",
+    "currency": "TRY",
+    "statement_total": 1215685,
+    "minimum_payment": 486274,
+    "credit_limit": 15000000,
+    "next_period_end": "2026-12-28",
+    "next_due_date": "2027-01-07",
+    "page_count": 3,
+    "interest_rates": {
+      "purchase_monthly": "3.11",
+      "purchase_yearly": "37.32",
+      "cash_advance_monthly": "4.02",
+      "cash_advance_yearly": "48.24",
+      "purchase_late_monthly": "3.41",
+      "purchase_late_yearly": "40.92",
+      "cash_advance_late_monthly": "4.32",
+      "cash_advance_late_yearly": "51.84"
+    },
+    "printed_summary": {
+      "previous_balance": 885654,
+      "period_transactions": 1215685,
+      "interest_and_fees": null,
+      "payments": 885654,
+      "statement_total": 1215685,
+      "remaining_installments": 300000
+    }
+  },
+  "transactions": [
+    {
+      "date": "2026-10-28",
+      "description": "ÖNCEKİ DÖNEM HESAP ÖZETİ BORCU",
+      "amount": 885654,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "carry_over",
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-11-07",
+      "description": "ÖDEME-İNTERNET BANKACILIĞI",
+      "amount": 885654,
+      "currency": "TRY",
+      "direction": "credit",
+      "kind": "payment",
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-10-31",
+      "description": "DENEME KAFE          ISTANBUL       TR",
+      "amount": 87366,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "DENEME KAFE ISTANBUL TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-11-03",
+      "description": "ORNEK KITAPEVI       ANKARA         TR",
+      "amount": 246289,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK KITAPEVI ANKARA TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-11-06",
+      "description": "TEST ECZANESI        IZMIR          TR",
+      "amount": 216968,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "TEST ECZANESI IZMIR TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-11-10",
+      "description": "ORNEK ELEKTRIK DAGITIM",
+      "amount": 122943,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK ELEKTRIK DAGITIM",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": "ABNO [NUMBER] FTNO [NUMBER]",
+      "installment": null
+    },
+    {
+      "date": "2026-11-13",
+      "description": "ORNEK SU IDARESI",
+      "amount": 27352,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK SU IDARESI",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": "ABNO [NUMBER] FTNO [NUMBER]",
+      "installment": null
+    },
+    {
+      "date": "2026-11-16",
+      "description": "ORNEK TELEKOM",
+      "amount": 179784,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK TELEKOM",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": "ABNO [NUMBER] FTNO [NUMBER]",
+      "installment": null
+    },
+    {
+      "date": "2026-11-19",
+      "description": "ORNEKNET INTERNET",
+      "amount": 34983,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEKNET INTERNET",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": "ABNO [NUMBER] FTNO [NUMBER]",
+      "installment": null
+    },
+    {
+      "date": "2026-09-09",
+      "description": "ORNEK SPOR           ISTANBUL       TR",
+      "amount": 300000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "merchant": "ORNEK SPOR ISTANBUL TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": "600",
+      "detail": "12.000,00 TL'lik işlemin 3 / 4 taksidi",
+      "installment": {
+        "remaining_count": 1,
+        "remaining_amount_each": 300000,
+        "is_last": false,
+        "index": 3,
+        "total_count": 4,
+        "component": null,
+        "plan_key": "C"
+      }
+    }
+  ],
+  "expected_reconciliation": {
+    "status": "ok",
+    "expected": 1215685,
+    "computed": 1215685,
+    "difference": 0,
+    "checks": [
+      "period_transactions",
+      "payments",
+      "previous_balance",
+      "printed_summary_arithmetic",
+      "remaining_installments",
+      "statement_total"
+    ],
+    "buckets": {
+      "carry_over": 885654,
+      "period": 1215685,
+      "interest_and_fees": 0,
+      "payments": 885654
+    }
+  },
+  "open_plans": {
+    "C": {
+      "remaining_count": 1,
+      "amount_each": 300000
+    }
+  }
+}

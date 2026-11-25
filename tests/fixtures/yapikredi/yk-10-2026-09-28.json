@@ -1,0 +1,182 @@
+{
+  "synthetic": true,
+  "scenarios": [
+    "installment start",
+    "foreign currency"
+  ],
+  "statement": {
+    "bank": "yapikredi",
+    "product": "World",
+    "parser_id": "tr_yapikredi_world",
+    "card_last4": "4321",
+    "period_start": "2026-08-29",
+    "period_end": "2026-09-28",
+    "due_date": "2026-10-08",
+    "currency": "TRY",
+    "statement_total": 1751988,
+    "minimum_payment": 700795,
+    "credit_limit": 15000000,
+    "next_period_end": "2026-10-28",
+    "next_due_date": "2026-11-07",
+    "page_count": 3,
+    "interest_rates": {
+      "purchase_monthly": "3.11",
+      "purchase_yearly": "37.32",
+      "cash_advance_monthly": "4.02",
+      "cash_advance_yearly": "48.24",
+      "purchase_late_monthly": "3.41",
+      "purchase_late_yearly": "40.92",
+      "cash_advance_late_monthly": "4.32",
+      "cash_advance_late_yearly": "51.84"
+    },
+    "printed_summary": {
+      "previous_balance": 1204946,
+      "period_transactions": 1751988,
+      "interest_and_fees": null,
+      "payments": 1204946,
+      "statement_total": 1751988,
+      "remaining_installments": 900000
+    }
+  },
+  "transactions": [
+    {
+      "date": "2026-08-28",
+      "description": "ÖNCEKİ DÖNEM HESAP ÖZETİ BORCU",
+      "amount": 1204946,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "carry_over",
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-09-07",
+      "description": "ÖDEME-İNTERNET BANKACILIĞI",
+      "amount": 1204946,
+      "currency": "TRY",
+      "direction": "credit",
+      "kind": "payment",
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-08-31",
+      "description": "ORNEKPAY    *ORNEK YEMEK ISTANBUL     TR",
+      "amount": 207464,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEKPAY *ORNEK YEMEK ISTANBUL TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": "528",
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-09-10",
+      "description": "ORNEK ELEKTRIK DAGITIM",
+      "amount": 42303,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK ELEKTRIK DAGITIM",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": "ABNO [NUMBER] FTNO [NUMBER]",
+      "installment": null
+    },
+    {
+      "date": "2026-09-13",
+      "description": "ORNEK SU IDARESI",
+      "amount": 174781,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK SU IDARESI",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": "ABNO [NUMBER] FTNO [NUMBER]",
+      "installment": null
+    },
+    {
+      "date": "2026-09-18",
+      "description": "DENEME OTEL          ROMA           IT",
+      "amount": 1027440,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "DENEME OTEL ROMA IT",
+      "source": "statement",
+      "original_amount": 28000,
+      "original_currency": "EUR",
+      "points": null,
+      "detail": "İşlem Tutarı: 280,00 EUR TRY Karşılığı : 10.274,40 TRY",
+      "installment": null
+    },
+    {
+      "date": "2026-09-09",
+      "description": "ORNEK SPOR           ISTANBUL       TR",
+      "amount": 300000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "merchant": "ORNEK SPOR ISTANBUL TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": "600",
+      "detail": "12.000,00 TL'lik işlemin 1 / 4 taksidi",
+      "installment": {
+        "remaining_count": 3,
+        "remaining_amount_each": 300000,
+        "is_last": false,
+        "index": 1,
+        "total_count": 4,
+        "component": null,
+        "plan_key": "C"
+      }
+    }
+  ],
+  "expected_reconciliation": {
+    "status": "ok",
+    "expected": 1751988,
+    "computed": 1751988,
+    "difference": 0,
+    "checks": [
+      "period_transactions",
+      "payments",
+      "previous_balance",
+      "printed_summary_arithmetic",
+      "remaining_installments",
+      "statement_total"
+    ],
+    "buckets": {
+      "carry_over": 1204946,
+      "period": 1751988,
+      "interest_and_fees": 0,
+      "payments": 1204946
+    }
+  },
+  "open_plans": {
+    "C": {
+      "remaining_count": 3,
+      "amount_each": 300000
+    }
+  }
+}

@@ -1,0 +1,218 @@
+{
+  "synthetic": true,
+  "scenarios": [
+    "last installment",
+    "two plans same shop and day",
+    "installment start"
+  ],
+  "statement": {
+    "bank": "yapikredi",
+    "product": "World",
+    "parser_id": "tr_yapikredi_world",
+    "card_last4": "4321",
+    "period_start": "2026-05-29",
+    "period_end": "2026-06-28",
+    "due_date": "2026-07-08",
+    "currency": "TRY",
+    "statement_total": 1361062,
+    "minimum_payment": 544425,
+    "credit_limit": 15000000,
+    "next_period_end": "2026-07-28",
+    "next_due_date": "2026-08-07",
+    "page_count": 3,
+    "interest_rates": {
+      "purchase_monthly": "3.11",
+      "purchase_yearly": "37.32",
+      "cash_advance_monthly": "4.02",
+      "cash_advance_yearly": "48.24",
+      "purchase_late_monthly": "3.41",
+      "purchase_late_yearly": "40.92",
+      "cash_advance_late_monthly": "4.32",
+      "cash_advance_late_yearly": "51.84"
+    },
+    "printed_summary": {
+      "previous_balance": 1500406,
+      "period_transactions": 1361062,
+      "interest_and_fees": null,
+      "payments": 1500406,
+      "statement_total": 1361062,
+      "remaining_installments": 900000
+    }
+  },
+  "transactions": [
+    {
+      "date": "2026-05-28",
+      "description": "ÖNCEKİ DÖNEM HESAP ÖZETİ BORCU",
+      "amount": 1500406,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "carry_over",
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-06-07",
+      "description": "ÖDEME-İNTERNET BANKACILIĞI",
+      "amount": 1500406,
+      "currency": "TRY",
+      "direction": "credit",
+      "kind": "payment",
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-05-31",
+      "description": "DENEME KAFE          ISTANBUL       TR",
+      "amount": 151817,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "DENEME KAFE ISTANBUL TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-06-10",
+      "description": "ORNEK ELEKTRIK DAGITIM",
+      "amount": 138928,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK ELEKTRIK DAGITIM",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": "ABNO [NUMBER] FTNO [NUMBER]",
+      "installment": null
+    },
+    {
+      "date": "2026-06-13",
+      "description": "ORNEK SU IDARESI",
+      "amount": 120316,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK SU IDARESI",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": "ABNO [NUMBER] FTNO [NUMBER]",
+      "installment": null
+    },
+    {
+      "date": "2025-12-31",
+      "description": "ORNEKPAY    *ORNEK ELEKTRONIK ISTANBUL TR",
+      "amount": 500000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "merchant": "ORNEKPAY *ORNEK ELEKTRONIK ISTANBUL TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": "30.000,00 TL'lik işlemin 6 / 6 taksidi",
+      "installment": {
+        "remaining_count": 0,
+        "remaining_amount_each": 0,
+        "is_last": true,
+        "index": 6,
+        "total_count": 6,
+        "component": null,
+        "plan_key": "A"
+      }
+    },
+    {
+      "date": "2026-06-06",
+      "description": "DENEME MOBILYA       ISTANBUL       TR",
+      "amount": 300001,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "merchant": "DENEME MOBILYA ISTANBUL TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": "600",
+      "detail": "9.000,01 TL'lik işlemin 1 / 3 taksidi",
+      "installment": {
+        "remaining_count": 2,
+        "remaining_amount_each": 300000,
+        "is_last": false,
+        "index": 1,
+        "total_count": 3,
+        "component": null,
+        "plan_key": "B"
+      }
+    },
+    {
+      "date": "2026-06-06",
+      "description": "DENEME MOBILYA       ISTANBUL       TR",
+      "amount": 150000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "merchant": "DENEME MOBILYA ISTANBUL TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": "300",
+      "detail": "4.500,00 TL'lik işlemin 1 / 3 taksidi",
+      "installment": {
+        "remaining_count": 2,
+        "remaining_amount_each": 150000,
+        "is_last": false,
+        "index": 1,
+        "total_count": 3,
+        "component": null,
+        "plan_key": "D"
+      }
+    }
+  ],
+  "expected_reconciliation": {
+    "status": "ok",
+    "expected": 1361062,
+    "computed": 1361062,
+    "difference": 0,
+    "checks": [
+      "period_transactions",
+      "payments",
+      "previous_balance",
+      "printed_summary_arithmetic",
+      "remaining_installments",
+      "statement_total"
+    ],
+    "buckets": {
+      "carry_over": 1500406,
+      "period": 1361062,
+      "interest_and_fees": 0,
+      "payments": 1500406
+    }
+  },
+  "open_plans": {
+    "B": {
+      "remaining_count": 2,
+      "amount_each": 300000
+    },
+    "D": {
+      "remaining_count": 2,
+      "amount_each": 150000
+    }
+  }
+}

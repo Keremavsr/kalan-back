@@ -1,0 +1,226 @@
+{
+  "synthetic": true,
+  "scenarios": [
+    "regular month"
+  ],
+  "statement": {
+    "bank": "yapikredi",
+    "product": "World",
+    "parser_id": "tr_yapikredi_world",
+    "card_last4": "4321",
+    "period_start": "2026-01-29",
+    "period_end": "2026-02-28",
+    "due_date": "2026-03-10",
+    "currency": "TRY",
+    "statement_total": 1216807,
+    "minimum_payment": 486723,
+    "credit_limit": 15000000,
+    "next_period_end": "2026-03-28",
+    "next_due_date": "2026-04-07",
+    "page_count": 3,
+    "interest_rates": {
+      "purchase_monthly": "3.11",
+      "purchase_yearly": "37.32",
+      "cash_advance_monthly": "4.02",
+      "cash_advance_yearly": "48.24",
+      "purchase_late_monthly": "3.41",
+      "purchase_late_yearly": "40.92",
+      "cash_advance_late_monthly": "4.32",
+      "cash_advance_late_yearly": "51.84"
+    },
+    "printed_summary": {
+      "previous_balance": 1071666,
+      "period_transactions": 1216807,
+      "interest_and_fees": null,
+      "payments": 1071666,
+      "statement_total": 1216807,
+      "remaining_installments": 2000000
+    }
+  },
+  "transactions": [
+    {
+      "date": "2026-01-28",
+      "description": "ÖNCEKİ DÖNEM HESAP ÖZETİ BORCU",
+      "amount": 1071666,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "carry_over",
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-02-07",
+      "description": "ÖDEME-İNTERNET BANKACILIĞI",
+      "amount": 1071666,
+      "currency": "TRY",
+      "direction": "credit",
+      "kind": "payment",
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-01-31",
+      "description": "ORNEK KITAPEVI       ANKARA         TR",
+      "amount": 189139,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK KITAPEVI ANKARA TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": "792",
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-02-03",
+      "description": "TEST ECZANESI        IZMIR          TR",
+      "amount": 209984,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "TEST ECZANESI IZMIR TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-02-06",
+      "description": "ORNEKPAY    *ORNEK YEMEK ISTANBUL     TR",
+      "amount": 30193,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEKPAY *ORNEK YEMEK ISTANBUL TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-02-10",
+      "description": "ORNEK ELEKTRIK DAGITIM",
+      "amount": 41653,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK ELEKTRIK DAGITIM",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": "ABNO [NUMBER] FTNO [NUMBER]",
+      "installment": null
+    },
+    {
+      "date": "2026-02-13",
+      "description": "ORNEK SU IDARESI",
+      "amount": 114308,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK SU IDARESI",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": "ABNO [NUMBER] FTNO [NUMBER]",
+      "installment": null
+    },
+    {
+      "date": "2026-02-16",
+      "description": "ORNEK TELEKOM",
+      "amount": 61556,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK TELEKOM",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": "ABNO [NUMBER] FTNO [NUMBER]",
+      "installment": null
+    },
+    {
+      "date": "2026-02-19",
+      "description": "ORNEKNET INTERNET",
+      "amount": 69974,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEKNET INTERNET",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": "ABNO [NUMBER] FTNO [NUMBER]",
+      "installment": null
+    },
+    {
+      "date": "2025-12-31",
+      "description": "ORNEKPAY    *ORNEK ELEKTRONIK ISTANBUL TR",
+      "amount": 500000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "merchant": "ORNEKPAY *ORNEK ELEKTRONIK ISTANBUL TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": "1.000",
+      "detail": "30.000,00 TL'lik işlemin 2 / 6 taksidi",
+      "installment": {
+        "remaining_count": 4,
+        "remaining_amount_each": 500000,
+        "is_last": false,
+        "index": 2,
+        "total_count": 6,
+        "component": null,
+        "plan_key": "A"
+      }
+    }
+  ],
+  "expected_reconciliation": {
+    "status": "ok",
+    "expected": 1216807,
+    "computed": 1216807,
+    "difference": 0,
+    "checks": [
+      "period_transactions",
+      "payments",
+      "previous_balance",
+      "printed_summary_arithmetic",
+      "remaining_installments",
+      "statement_total"
+    ],
+    "buckets": {
+      "carry_over": 1071666,
+      "period": 1216807,
+      "interest_and_fees": 0,
+      "payments": 1071666
+    }
+  },
+  "open_plans": {
+    "A": {
+      "remaining_count": 4,
+      "amount_each": 500000
+    }
+  }
+}

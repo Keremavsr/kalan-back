@@ -119,9 +119,13 @@ class YapikrediWorld(TemplateParser):
                     if again is not None:
                         i = again + len(head)
                         continue
-                ln, f, _ = flat[i]
-                if not any(p.match(f) for p in _FOOTER):
-                    body.append((ln, f))
+                ln, f, page = flat[i]
+                if any(p.match(f) for p in _FOOTER):
+                    # The footer closes the page; page 1 prints the rate table after it.
+                    while i < len(flat) and flat[i][2] == page:
+                        i += 1
+                    continue
+                body.append((ln, f))
                 i += 1
             # A table ends at its TOPLAM row; a table holding only the opening balance has none.
             if i >= len(flat):

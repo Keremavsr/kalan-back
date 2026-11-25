@@ -1,0 +1,196 @@
+{
+  "synthetic": true,
+  "scenarios": [
+    "partial payment"
+  ],
+  "statement": {
+    "bank": "yapikredi",
+    "product": "World",
+    "parser_id": "tr_yapikredi_world",
+    "card_last4": "4321",
+    "period_start": "2026-03-29",
+    "period_end": "2026-04-28",
+    "due_date": "2026-05-08",
+    "currency": "TRY",
+    "statement_total": 1595492,
+    "minimum_payment": 638197,
+    "credit_limit": 15000000,
+    "next_period_end": "2026-05-28",
+    "next_due_date": "2026-06-07",
+    "page_count": 3,
+    "interest_rates": {
+      "purchase_monthly": "3.11",
+      "purchase_yearly": "37.32",
+      "cash_advance_monthly": "4.02",
+      "cash_advance_yearly": "48.24",
+      "purchase_late_monthly": "3.41",
+      "purchase_late_yearly": "40.92",
+      "cash_advance_late_monthly": "4.32",
+      "cash_advance_late_yearly": "51.84"
+    },
+    "printed_summary": {
+      "previous_balance": 847497,
+      "period_transactions": 1171743,
+      "interest_and_fees": null,
+      "payments": 423748,
+      "statement_total": 1595492,
+      "remaining_installments": 1000000
+    }
+  },
+  "transactions": [
+    {
+      "date": "2026-03-28",
+      "description": "ÖNCEKİ DÖNEM HESAP ÖZETİ BORCU",
+      "amount": 847497,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "carry_over",
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-04-07",
+      "description": "ÖDEME-İNTERNET BANKACILIĞI",
+      "amount": 423748,
+      "currency": "TRY",
+      "direction": "credit",
+      "kind": "payment",
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-03-31",
+      "description": "ORNEKPAY    *ORNEK YEMEK ISTANBUL     TR",
+      "amount": 165170,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEKPAY *ORNEK YEMEK ISTANBUL TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-04-03",
+      "description": "ORNEKMARKET          ISTANBUL       TR",
+      "amount": 205008,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEKMARKET ISTANBUL TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    },
+    {
+      "date": "2026-04-10",
+      "description": "ORNEK ELEKTRIK DAGITIM",
+      "amount": 128316,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK ELEKTRIK DAGITIM",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": "ABNO [NUMBER] FTNO [NUMBER]",
+      "installment": null
+    },
+    {
+      "date": "2026-04-13",
+      "description": "ORNEK SU IDARESI",
+      "amount": 43512,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK SU IDARESI",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": "ABNO [NUMBER] FTNO [NUMBER]",
+      "installment": null
+    },
+    {
+      "date": "2026-04-16",
+      "description": "ORNEK TELEKOM",
+      "amount": 129737,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "purchase",
+      "merchant": "ORNEK TELEKOM",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": "ABNO [NUMBER] FTNO [NUMBER]",
+      "installment": null
+    },
+    {
+      "date": "2025-12-31",
+      "description": "ORNEKPAY    *ORNEK ELEKTRONIK ISTANBUL TR",
+      "amount": 500000,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "installment",
+      "merchant": "ORNEKPAY *ORNEK ELEKTRONIK ISTANBUL TR",
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": "1.000",
+      "detail": "30.000,00 TL'lik işlemin 4 / 6 taksidi",
+      "installment": {
+        "remaining_count": 2,
+        "remaining_amount_each": 500000,
+        "is_last": false,
+        "index": 4,
+        "total_count": 6,
+        "component": null,
+        "plan_key": "A"
+      }
+    }
+  ],
+  "expected_reconciliation": {
+    "status": "ok",
+    "expected": 1171743,
+    "computed": 1171743,
+    "difference": 0,
+    "checks": [
+      "period_transactions",
+      "payments",
+      "previous_balance",
+      "printed_summary_arithmetic",
+      "remaining_installments",
+      "statement_total"
+    ],
+    "buckets": {
+      "carry_over": 847497,
+      "period": 1171743,
+      "interest_and_fees": 0,
+      "payments": 423748
+    }
+  },
+  "open_plans": {
+    "A": {
+      "remaining_count": 2,
+      "amount_each": 500000
+    }
+  }
+}

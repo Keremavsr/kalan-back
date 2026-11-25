@@ -1,0 +1,79 @@
+{
+  "synthetic": true,
+  "scenarios": [
+    "zero balance",
+    "opening balance only, no TOPLAM row"
+  ],
+  "statement": {
+    "bank": "yapikredi",
+    "product": "World",
+    "parser_id": "tr_yapikredi_world",
+    "card_last4": "4321",
+    "period_start": "2025-11-29",
+    "period_end": "2025-12-28",
+    "due_date": "2026-01-07",
+    "currency": "TRY",
+    "statement_total": 0,
+    "minimum_payment": 0,
+    "credit_limit": 15000000,
+    "next_period_end": "2026-01-28",
+    "next_due_date": "2026-02-07",
+    "page_count": 2,
+    "interest_rates": {
+      "purchase_monthly": "3.11",
+      "purchase_yearly": "37.32",
+      "cash_advance_monthly": "4.02",
+      "cash_advance_yearly": "48.24",
+      "purchase_late_monthly": "3.41",
+      "purchase_late_yearly": "40.92",
+      "cash_advance_late_monthly": "4.32",
+      "cash_advance_late_yearly": "51.84"
+    },
+    "printed_summary": {
+      "previous_balance": 0,
+      "period_transactions": 0,
+      "interest_and_fees": null,
+      "payments": 0,
+      "statement_total": 0,
+      "remaining_installments": 0
+    }
+  },
+  "transactions": [
+    {
+      "date": "2025-11-28",
+      "description": "ÖNCEKİ DÖNEM HESAP ÖZETİ BORCU",
+      "amount": 0,
+      "currency": "TRY",
+      "direction": "debit",
+      "kind": "carry_over",
+      "merchant": null,
+      "source": "statement",
+      "original_amount": null,
+      "original_currency": null,
+      "points": null,
+      "detail": null,
+      "installment": null
+    }
+  ],
+  "expected_reconciliation": {
+    "status": "ok",
+    "expected": 0,
+    "computed": 0,
+    "difference": 0,
+    "checks": [
+      "period_transactions",
+      "payments",
+      "previous_balance",
+      "printed_summary_arithmetic",
+      "remaining_installments",
+      "statement_total"
+    ],
+    "buckets": {
+      "carry_over": 0,
+      "period": 0,
+      "interest_and_fees": 0,
+      "payments": 0
+    }
+  },
+  "open_plans": {}
+}

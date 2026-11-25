@@ -130,6 +130,26 @@ class PrivateNetworkAccess:
         await self.app(scope, receive, send_with_pna)
 
 
+class NoStore:
+    """``Cache-Control: no-store`` on every response: statement data must stay out of browser and Electron caches."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_no_store(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = [h for h in message.get("headers", []) if h[0].lower() != b"cache-control"]
+                message["headers"] = [*headers, (b"cache-control", b"no-store")]
+            await send(message)
+
+        await self.app(scope, receive, send_no_store)
+
+
 class UploadLimit:
     """Reject request bodies that announce more than the upload limit before reading them."""
 
@@ -186,6 +206,7 @@ def create_app(
     app.add_middleware(UploadLimit, max_bytes=config.max_upload_bytes)
     if not native_pna:
         app.add_middleware(PrivateNetworkAccess)
+    app.add_middleware(NoStore)
 
     # -- health and setup -------------------------------------------------------------------------
 

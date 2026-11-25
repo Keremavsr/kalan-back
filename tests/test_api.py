@@ -58,6 +58,12 @@ def test_health(client):
     assert client.get("/health").json() == {"status": "ok", "version": "0.1.0"}
 
 
+def test_responses_are_never_cached(client):
+    # statement data must not end up in the Electron or browser disk cache
+    for path in ("/health", "/statements", "/no-such-route"):
+        assert client.get(path).headers["cache-control"] == "no-store"
+
+
 def test_providers_contract_order_without_real_tools(config, store):
     app = create_app(config=config, store=store, registry=ProviderRegistry(default_adapters()))
     from fastapi.testclient import TestClient

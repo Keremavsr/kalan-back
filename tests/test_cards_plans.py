@@ -195,17 +195,43 @@ def test_missing_statements_are_one_alert_per_gap():
     alerts = [a for a in compute_alerts(sts, build_schedule(sts, months=1), [], today=date(2100, 2, 21))
               if a.kind == "missing_statement"]
     by_from = {a.params["from"]: a for a in alerts}
-    assert sorted(by_from) == ["2099-03", "2099-07", "2099-12"]
+    assert sorted(by_from) == ["2099-03", "2099-07", "2099-09", "2099-12"]
     spring = by_from["2099-03"]
     assert spring.params | {} == {"bank": "garanti", "card_last4": "1111", "card": "Garanti Bonus ··1111",
                                   "from": "2099-03", "to": "2099-05", "months": 3,
-                                  "month_list": ["2099-03", "2099-04", "2099-05"]}
+                                  "month_list": ["2099-03", "2099-04", "2099-05"], "trailing": False}
     assert spring.month == "2099-03" and spring.card_id == card_id("garanti", "1111")
     assert spring.text == ("Garanti Bonus ··1111 için Mart–Mayıs 2099 ekstreleri yok. Bankanın uygulamasından "
                            "PDF olarak indirip ekle.")
     assert by_from["2099-07"].text.startswith("Garanti Bonus ··1111 için Temmuz 2099 ekstresi yok.")
     assert "Aralık 2099–Ocak 2100 ekstreleri yok" in by_from["2099-12"].text
     assert spring.refs.statement_ids == ["st_garanti1111_2099-02-20", "st_garanti1111_2099-06-20"]
+    tail = by_from["2099-09"]  # after the latest Garanti statement (August), up to January's cut-off + 7 days
+    assert tail.params["trailing"] and tail.params["to"] == "2100-01" and tail.params["months"] == 5
+    assert tail.refs.statement_ids == ["st_garanti1111_2099-08-20"]
+
+
+def _missing(sts, today):
+    return [a for a in compute_alerts(sts, build_schedule(sts, months=1), [], today=today)
+            if a.kind in ("missing_statement", "statement_overdue")]
+
+
+def test_trailing_missing_months_up_to_today():
+    sts = [statement("2099-08-26"), statement("2099-09-26")]
+    # Latest September; late November: October is missing, November is not cut long enough ago.
+    (alert,) = _missing(sts, date(2099, 11, 28))
+    assert alert.kind == "missing_statement" and alert.params["month_list"] == ["2099-10"]
+    assert alert.params["trailing"] and alert.month == "2099-10"
+    assert alert.text.startswith("Garanti Bonus ··1111 için Ekim 2099 ekstresi yok.")
+    (later,) = _missing(sts, date(2099, 12, 4))  # November 26 + 7 days has passed
+    assert later.params["month_list"] == ["2099-10", "2099-11"]
+    assert _missing(sts, date(2099, 10, 3)) == []  # October's statement is not due yet
+
+
+def test_trailing_missing_keeps_the_cut_off_day():
+    sts = [statement("2099-01-31")]  # February is clipped to the 28th; March is the 31st again
+    assert [a.params["month_list"] for a in _missing(sts, date(2099, 4, 7))] == [["2099-02"]]
+    assert [a.params["month_list"] for a in _missing(sts, date(2099, 4, 8))] == [["2099-02", "2099-03"]]
 
 
 def test_missing_statement_in_english():

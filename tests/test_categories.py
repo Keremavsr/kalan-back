@@ -39,6 +39,18 @@ def tx(description: str, kind: str = "purchase", merchant: str | None = None) ->
     ("PARAM KAFE", "PARAM KAFE"),  # short processor names need the star
     ("PARAM*ORNEK KAFE", "ORNEK KAFE"),
     ("ORNEK STORE 9.99 USD", "ORNEK STORE"),
+    # Processor glued to the shop's short form (task 7).
+    ("MONEYPAYMIGR MIGROS HEMEN", "MIGROS HEMEN"),
+    ("MONEYPAYMIGR MIGROS HEMEN ISTANBUL TR", "MIGROS HEMEN"),
+    ("IYZICOORNE ORNEK KAFE", "ORNEK KAFE"),
+    ("MONEYPAYMIGROS HEMEN", "MIGROS HEMEN"),  # a known brand glued behind it
+    # Real names that start with a processor name stay whole.
+    ("PAPARAZZI CAFE", "PAPARAZZI CAFE"),
+    ("PAPARAZZI", "PAPARAZZI"),
+    ("PAYTRONIK TRON ELEKTRONIK", "PAYTRONIK TRON ELEKTRONIK"),
+    ("SIPAYAN ANKA", "SIPAYAN ANKA"),  # too short a rest
+    ("ORNEK MONEYPAYMIGR MIGROS", "ORNEK MONEYPAYMIGR MIGROS"),  # only the first word
+    ("PARAMOUNT PARAMOUNT", "PARAMOUNT PARAMOUNT"),  # short, starred-only processor names never glue
 ])
 def test_merchant_names(printed, name):
     assert normalize_merchant(printed) == name

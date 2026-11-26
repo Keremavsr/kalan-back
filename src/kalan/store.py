@@ -10,10 +10,11 @@ Only redacted data reaches this module: statements come out of :func:`kalan.pipe
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from importlib import resources
 from pathlib import Path
 from typing import Any, Literal
@@ -23,12 +24,15 @@ from pydantic import BaseModel, Field
 from kalan import cards
 from kalan.amounts import month_key
 from kalan.models import FixedCost, Locale, ManualInstallment, Statement, StatementSummary, Transaction
+from kalan.procs import pid_alive
 from kalan.redact import redact_text
 from kalan.text import merchant_fields
 
 _MIGRATIONS_PACKAGE = "kalan.migrations"
 
 JobStatus = Literal["pending", "done", "failed"]
+JOB_STALE_AFTER = timedelta(minutes=5)
+"""A pending job whose owner has not shown it is alive for this long counts as interrupted (heartbeat every 30 s)."""
 READ_ONLY_TX = frozenset({"card_id", "card_label", "category_source"})
 """Transaction fields filled when read, never stored with the row."""
 READ_ONLY_STATEMENT = frozenset({"card_id", "card_label"})
@@ -65,6 +69,8 @@ class Job(BaseModel):
     total: int = 1
     failed: int = 0
     phase: Literal["statements", "suggestions", "done"] = "statements"
+    owner_pid: int | None = None
+    heartbeat_at: str | None = None
 
     def body(self) -> dict[str, Any]:
         """``GET /jobs/{id}`` shape."""
@@ -75,6 +81,10 @@ class Job(BaseModel):
 
 def now_iso() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def parse_iso(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
 def migrations() -> list[tuple[int, str, str]]:
@@ -496,11 +506,15 @@ class Store:
     # -- jobs -------------------------------------------------------------------------------------
 
     def create_job(self, job_id: str, statement_id: str, provider: str) -> Job:
-        job = Job(id=job_id, statement_id=statement_id, provider=provider, status="pending", created_at=now_iso())
+        """A pending statement job owned by this process."""
+        job = Job(id=job_id, statement_id=statement_id, provider=provider, status="pending", created_at=now_iso(),
+                  owner_pid=os.getpid())
+        job.heartbeat_at = job.created_at
         with self._tx() as con:
             con.execute(
-                "INSERT INTO jobs (id, statement_id, provider, status, created_at) VALUES (?, ?, ?, 'pending', ?)",
-                (job.id, statement_id, provider, job.created_at),
+                "INSERT INTO jobs (id, statement_id, provider, status, created_at, owner_pid, heartbeat_at) "
+                "VALUES (?, ?, ?, 'pending', ?, ?, ?)",
+                (job.id, statement_id, provider, job.created_at, job.owner_pid, job.heartbeat_at),
             )
             con.execute("UPDATE statements SET analysis_status = 'pending' WHERE id = ?", (statement_id,))
         return job
@@ -526,24 +540,42 @@ class Store:
 
     def create_batch_job(self, job_id: str, provider: str, total: int) -> Job:
         job = Job(id=job_id, statement_id="", provider=provider, status="pending", created_at=now_iso(),
-                  kind="analysis_all", total=total)
+                  kind="analysis_all", total=total, owner_pid=os.getpid())
+        job.heartbeat_at = job.created_at
         with self._tx() as con:
             con.execute(
-                "INSERT INTO jobs (id, statement_id, provider, status, created_at, kind, total) "
-                "VALUES (?, '', ?, 'pending', ?, 'analysis_all', ?)",
-                (job.id, provider, job.created_at, total),
+                "INSERT INTO jobs (id, statement_id, provider, status, created_at, kind, total, owner_pid, "
+                "heartbeat_at) VALUES (?, '', ?, 'pending', ?, 'analysis_all', ?, ?, ?)",
+                (job.id, provider, job.created_at, total, job.owner_pid, job.heartbeat_at),
             )
         return job
 
     def update_job(self, job_id: str, **fields: int | str) -> None:
-        """Progress of a batch job: any of ``done``, ``total``, ``failed``, ``phase``."""
+        """Progress of a batch job: any of ``done``, ``total``, ``failed``, ``phase``. Also a heartbeat."""
         allowed = {"done", "total", "failed", "phase"}
         sets = [k for k in fields if k in allowed]
         if not sets:
             return
         with self._tx() as con:
-            con.execute(f"UPDATE jobs SET {', '.join(f'{k} = ?' for k in sets)} WHERE id = ?",
-                        (*(fields[k] for k in sets), job_id))
+            con.execute(f"UPDATE jobs SET {', '.join(f'{k} = ?' for k in sets)}, heartbeat_at = ? WHERE id = ?",
+                        (*(fields[k] for k in sets), now_iso(), job_id))
+
+    def heartbeat(self, job_ids: list[str]) -> None:
+        """The owner of these pending jobs is alive (see :data:`JOB_STALE_AFTER`)."""
+        if not job_ids:
+            return
+        with self._tx() as con:
+            con.executemany("UPDATE jobs SET heartbeat_at = ? WHERE id = ? AND status = 'pending'",
+                            [(now_iso(), job_id) for job_id in job_ids])
+
+    @staticmethod
+    def job_alive(job: Job, now: datetime | None = None, stale_after: timedelta = JOB_STALE_AFTER) -> bool:
+        """A pending job someone is still running: its owner process exists and showed it is alive recently.
+        Jobs from before ownership was recorded have no owner and count as dead."""
+        if job.status != "pending" or job.owner_pid is None or not pid_alive(job.owner_pid):
+            return False
+        beat = job.heartbeat_at or job.created_at
+        return (now or datetime.now(UTC)) - parse_iso(beat) <= stale_after
 
     def latest_batch_job(self, pending_only: bool = False) -> Job | None:
         sql = "SELECT * FROM jobs WHERE kind = 'analysis_all'"
@@ -562,10 +594,16 @@ class Store:
             ).fetchone()
             return None if row is None else Job.model_validate(dict(row))
 
-    def fail_interrupted_jobs(self) -> int:
-        """Jobs left pending by a previous run can never finish; mark them failed."""
+    def fail_interrupted_jobs(self, now: datetime | None = None, stale_after: timedelta = JOB_STALE_AFTER) -> int:
+        """Mark pending jobs failed whose owner process is gone or silent for longer than ``stale_after``.
+
+        Another live process using the same database keeps its jobs. When no pending job is left afterwards, a
+        statement still marked ``pending`` (a batch stopped in the middle of it) becomes ``failed`` so a later
+        batch picks it up again."""
         with self._tx() as con:
-            ids = [r["id"] for r in con.execute("SELECT id FROM jobs WHERE status = 'pending'").fetchall()]
+            rows = [Job.model_validate(dict(r)) for r in con.execute(
+                "SELECT * FROM jobs WHERE status = 'pending'").fetchall()]
+            ids = [job.id for job in rows if not self.job_alive(job, now, stale_after)]
             for job_id in ids:
                 con.execute(
                     "UPDATE jobs SET status = 'failed', error = 'interrupted: the service stopped before the job "
@@ -577,6 +615,8 @@ class Store:
                     "(SELECT statement_id FROM jobs WHERE id = ?)",
                     (job_id,),
                 )
+            if len(ids) == len(rows):
+                con.execute("UPDATE statements SET analysis_status = 'failed' WHERE analysis_status = 'pending'")
             return len(ids)
 
     # -- settings ---------------------------------------------------------------------------------

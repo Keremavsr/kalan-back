@@ -32,14 +32,24 @@ def test_charged_after_cancel():
     assert "charged_after_cancel" not in {x.kind for x in none}
 
 
-def test_statement_overdue():
+def test_statement_overdue_is_told_once_as_a_missing_month():
     st = statement(period_end=date(2099, 1, 31), due=date(2099, 2, 10))
     # next cut-off 2099-02-28 (clipped); grace 7 days
-    assert "statement_overdue" not in {a.kind for a in alerts([st], date(2099, 3, 7))}
-    late = next(a for a in alerts([st], date(2099, 3, 8)) if a.kind == "statement_overdue")
+    kinds = {a.kind for a in alerts([st], date(2099, 3, 7))}
+    assert "statement_overdue" not in kinds and "missing_statement" not in kinds
+    late = alerts([st], date(2099, 3, 8))
+    assert "statement_overdue" not in {a.kind for a in late}  # the same month as the missing one: shown once
+    (gap,) = [a for a in late if a.kind == "missing_statement"]
+    assert gap.month == "2099-02" and gap.severity == "warning" and gap.params["trailing"]
+
+
+def test_statement_overdue_without_a_missing_month():
+    from kalan.alerts import _statement_overdue
+
+    st = statement(period_end=date(2099, 1, 31), due=date(2099, 2, 10))
+    (late,) = _statement_overdue([st], [st], date(2099, 3, 8))
     assert late.params == {"bank": "ornekbank", "card_last4": "0000", "expected_cut_off": "2099-02-28",
                            "days_overdue": 8}
-    assert late.month == "2099-02" and late.severity == "warning"
 
 
 RENT = FixedCost(id="fc_rent", name="ORNEK KIRA", amount=1000000, day=31, start="2099-01")

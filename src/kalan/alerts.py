@@ -134,7 +134,8 @@ def compute_alerts(
                 refs, st.id, card=st,
             ))
 
-    out += _missing_statements(statements, locale)
+    missing = _missing_statements(statements, today, locale)
+    out += missing
 
     for sub in subscriptions:
         change = sub.get("price_change")
@@ -149,29 +150,66 @@ def compute_alerts(
                 Refs(), sub["merchant"],
             ).model_copy(update={"card_id": sub.get("card_id"), "card_label": sub.get("card_label")}))
 
-    out += _statement_overdue(latest, statements, today) + _charged_after_cancel(statements, cancelled or [])
+    covered = {(a.card_id, a.params["bank"], a.params["card_last4"], m) for a in missing
+               for m in a.params["month_list"]}
+    out += [a for a in _statement_overdue(latest, statements, today)  # the same month as a missing one: once
+            if (a.card_id, a.params["bank"], a.params["card_last4"] or None, a.month) not in covered]
+    out += _charged_after_cancel(statements, cancelled or [])
     return sorted(out, key=lambda a: (_SEVERITY_ORDER[a.severity], a.month, a.kind, a.id))
 
 
-def _missing_statements(statements: list[Statement], locale: str | None) -> list[Alert]:
-    """One alert per card and gap between two stored statements, with the missing months as a range."""
+def _same_day(month: str, day: int) -> date:
+    """``day`` of ``month`` (``YYYY-MM``), the month's last day when it is shorter."""
+    y, m = int(month[:4]), int(month[5:7])
+    return date(y, m, min(day, calendar.monthrange(y, m)[1]))
+
+
+def _next_cut_off(st: Statement) -> date:
+    """The cut-off after ``st``: the printed next cut-off, else the same day next month."""
+    return st.next_period_end or _same_day(add_months(st.cut_off_month, 1), st.period_end.day)
+
+
+def _due_months_after(st: Statement, today: date) -> list[str]:
+    """Months after a card's latest statement whose cut-off plus grace days has passed by ``today``.
+
+    The first expected cut-off is :func:`_next_cut_off`; later ones fall on its day of each following month. A month
+    not cut yet (or cut less than :data:`OVERDUE_GRACE_DAYS` ago) is not missing."""
+    first = _next_cut_off(st)
+    day = first.day if st.next_period_end else st.period_end.day
+    month = max(f"{first.year:04d}-{first.month:02d}", add_months(st.cut_off_month, 1))
+    out = []
+    cut = first
+    while cut + timedelta(days=OVERDUE_GRACE_DAYS) < today:
+        out.append(month)
+        month = add_months(month, 1)
+        cut = _same_day(month, day)
+    return out
+
+
+def _missing_statements(statements: list[Statement], today: date, locale: str | None) -> list[Alert]:
+    """One alert per card and gap: between two stored statements, and after the latest one up to ``today``
+    (``trailing``), with the missing months as a range."""
     by_card: dict[tuple[str, str], dict[str, Statement]] = defaultdict(dict)
     for st in statements:
         by_card[_card(st)][st.cut_off_month] = st
     out = []
     for (bank, last4), months in sorted(by_card.items()):
-        for a, b in pairwise(sorted(months)):
-            gap = [add_months(a, i) for i in range(1, months_between(a, b))]
+        ordered = sorted(months)
+        gaps = [([add_months(a, i) for i in range(1, months_between(a, b))], months[a], months[b], False)
+                for a, b in pairwise(ordered)]
+        latest = months[ordered[-1]]
+        gaps.append((_due_months_after(latest, today), latest, latest, True))
+        for gap, before, card, trailing in gaps:
             if not gap:
                 continue
-            card = months[b]
             label = card.card_label or bank
             key = "alert.missing_statement.one" if len(gap) == 1 else "alert.missing_statement.many"
+            ids = [before.id] if trailing else [before.id, card.id]
             alert = _alert(
                 "missing_statement", "warning", gap[0],
                 {"bank": bank, "card_last4": last4 or None, "card": label, "from": gap[0], "to": gap[-1],
-                 "months": len(gap), "month_list": gap},
-                Refs(statement_ids=[months[a].id, card.id]), bank, last4, gap[0], card=card,
+                 "months": len(gap), "month_list": gap, "trailing": trailing},
+                Refs(statement_ids=ids), bank, last4, gap[0], card=card,
             )
             out.append(alert.model_copy(update={"text": text(key, locale, card=label,
                                                              range=month_range(gap[0], gap[-1], locale))}))
@@ -182,9 +220,7 @@ def _statement_overdue(latest: list[Statement], statements: list[Statement], tod
     """A card's next statement should exist by now (expected cut-off + grace days) but was not uploaded."""
     out = []
     for st in latest:
-        y, m = (st.period_end.year, st.period_end.month + 1) if st.period_end.month < 12 else (
-            st.period_end.year + 1, 1)
-        nxt = st.next_period_end or date(y, m, min(st.period_end.day, calendar.monthrange(y, m)[1]))
+        nxt = _next_cut_off(st)
         if today > nxt + timedelta(days=OVERDUE_GRACE_DAYS):
             out.append(_alert(
                 "statement_overdue", "warning", f"{nxt.year:04d}-{nxt.month:02d}",

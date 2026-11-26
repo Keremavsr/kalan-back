@@ -51,6 +51,7 @@ class Rule:
 @dataclass(frozen=True, slots=True)
 class BuiltinRules:
     processors: re.Pattern[str]
+    glued: tuple[str, ...]
     tails: frozenset[str]
     address: frozenset[str]
     stems: tuple[tuple[str, str], ...]
@@ -75,6 +76,7 @@ def builtin() -> BuiltinRules:
     rules = tuple(Rule.of(str(p), category) for category, phrases in data["rules"].items() for p in phrases)
     return BuiltinRules(
         processors=re.compile(r"^(?:" + starred + (f"|{loose}" if loose else "") + r")", re.IGNORECASE),
+        glued=tuple(p for p in bare if p.isalpha() and len(p) >= GLUED_MIN),
         tails=frozenset(fold(str(t)) for t in merchant["tails"]),
         address=frozenset(fold(str(t)) for t in merchant.get("address", [])),
         stems=_stem_table(data.get("stems", []), rules),
@@ -83,6 +85,34 @@ def builtin() -> BuiltinRules:
         kinds=kinds,
         rules=rules,
     )
+
+
+GLUED_MIN = 5
+"""Shortest processor name stripped when glued to the shop's short form (``MONEYPAYMIGR MIGROS``)."""
+GLUED_REST_MIN = 3
+
+
+def _strip_glued_processor(tokens: list[str], b: BuiltinRules) -> list[str]:
+    """``MONEYPAYMIGR MIGROS HEMEN`` -> ``MIGROS HEMEN``; ``MONEYPAYMIGROS HEMEN`` -> ``MIGROS HEMEN``.
+
+    Only the first word, only an unambiguous processor name from ``bare_processors``, and only when what is glued
+    behind it is the start of the next word or a known brand. ``PAPARAZZI CAFE`` stays as it is."""
+    if not tokens:
+        return tokens
+    first = fold(tokens[0])
+    for proc in b.glued:
+        if not first.startswith(proc) or len(first) - len(proc) < GLUED_REST_MIN:
+            continue
+        rest = first[len(proc):]
+        if not rest.isalpha():
+            return tokens
+        if len(tokens) > 1 and fold(tokens[1]).startswith(rest):
+            return tokens[1:]
+        raw = tokens[0][len(proc):]
+        if fold(raw) == rest and any(rest == brand for brand, _ in b.brands):
+            return [raw, *tokens[1:]]
+        return tokens
+    return tokens
 
 
 _NUMBER_SEGMENT = re.compile(r"(?<=\S)[-/]\d{3,}(?=[-/\s]|$)")
@@ -97,7 +127,7 @@ def clean_merchant(key: str) -> str:
         text = b.processors.sub("", text, count=1)
     text = text.replace("*", " ")
     text = _NUMBER_SEGMENT.sub("", text)
-    tokens = text.split()
+    tokens = _strip_glued_processor(text.split(), b)
     if not tokens:
         return key.strip()
     tokens = tokens[:1] + [t for t in tokens[1:] if not _NUMBER_TOKEN.fullmatch(t)]

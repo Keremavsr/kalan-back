@@ -150,6 +150,11 @@ The old `open_period`, `forecast` and `backtest` stay. Added, one row per card:
   `refs.statement_ids` = the statements on both sides, `text` e.g. "Garanti Bonus ··0000 için Mart–Ağustos 2099
   ekstreleri yok. Bankanın uygulamasından PDF olarak indirip ekle." (one month: "Mart 2099 ekstresi yok."; across
   years "Kasım 2098–Şubat 2099").
+- Task 7: also months after a card's latest statement whose cut-off is more than 7 days past (first the printed
+  next cut-off, else the same day next month; then the same day of each later month), params `"trailing":true` and
+  `refs.statement_ids` = the latest statement only. A month not cut yet is not missing. Between two statements
+  `"trailing":false`. `statement_overdue` is not sent for a month a `missing_statement` already covers (with these
+  rules that is every case today; the kind stays in the contract).
 - Every alert has `text` (string or null; set for `missing_statement`, null for the others for now), `card_id`,
   `card_label`.
 
@@ -193,6 +198,10 @@ always null: kalan never shows a model's numbers as savings).
   suggestions. Rule results never depend on it.
 - `GET /analysis/all` -> the latest batch job (same body as `GET /jobs/{id}`) or `null`, so a reloaded page can find
   a running batch.
+- Job ownership (task 7, no body change): every pending job stores the service process that runs it and a heartbeat
+  (every 30 s). A service that starts on the same database fails only pending jobs whose owner process is gone or
+  silent for more than 5 minutes (`error` "interrupted: ..."); a live service's job stays `pending` and
+  `POST /analysis/all` returns that job instead of starting a second batch.
 - `GET /jobs/{job_id}` -> `{"job_id","kind":"statement|analysis_all","statement_id":"st_.."|null,
   "status":"pending|done|failed","phase":"statements|suggestions|done","done":3,"total":12,"failed":0,"error":null}`.
   A single-statement job has `total:1`.
@@ -418,10 +427,10 @@ Each plan also has `"source":"statement|manual|import"`. Every schedule item and
 | `interest_charged` | warning | count, total, currency | interest rows this period |
 | `fee_charged` / `tax_charged` | info | count, total, currency | fee / tax rows this period |
 | `foreign_currency` | info | count, currencies, total, currency | rows with an original foreign amount this period |
-| `missing_statement` | warning | bank, card_last4, card, from, to, months, month_list | months missing between two stored statements of a card, one alert per gap (v0.4.0) |
+| `missing_statement` | warning | bank, card_last4, card, from, to, months, month_list, trailing | months missing between two stored statements of a card, or after its latest one up to today (`trailing`), one alert per gap (v0.4.0, trailing task 7) |
 | `subscription_price_rise` | info | merchant, amount_previous, amount_last, price_change, currency | a subscription's last charge is higher than the one before |
 | `due_soon` | warning, critical at <= 1 day | due_date, days_left, statement_total, minimum_payment, currency | due date within 5 days and a balance is owed |
-| `statement_overdue` | warning | bank, card_last4, expected_cut_off, days_overdue | a card's next statement (printed next cut-off, else the same day next month) is more than 7 days past its cut-off and not uploaded |
+| `statement_overdue` | warning | bank, card_last4, expected_cut_off, days_overdue | a card's next statement (printed next cut-off, else the same day next month) is more than 7 days past its cut-off and not uploaded; dropped when a `missing_statement` covers that month |
 | `charged_after_cancel` | critical | merchant, cancelled_on, count, total, currency | a debit from a subscription marked cancelled (`/insights/cancelled-subscriptions`), dated after the cancellation |
 
 ## Model analysis (one call per statement)

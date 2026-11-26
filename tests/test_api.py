@@ -13,6 +13,7 @@ from kalan.api import create_app
 from kalan.pipeline import parse_pdf
 from kalan.schedule import build_schedule
 from tests.conftest import VB_PDFS, upload
+from tests.test_job_owner import dead_pid
 
 SUMMARY_KEYS = {"id", "bank", "product", "card_last4", "period_start", "period_end", "due_date", "currency",
                 "statement_total", "minimum_payment", "reconciliation", "analysis_status",
@@ -448,11 +449,25 @@ def test_unknown_job(client):
 def test_interrupted_jobs_fail_on_restart(config, store, registry, client, fake, analysed_setup):
     fake.release.clear()
     job_id = client.post(f"/statements/{analysed_setup['id']}/analyze").json()["job_id"]
+    with store._tx() as con:  # the service that ran it is gone
+        con.execute("UPDATE jobs SET owner_pid = ? WHERE id = ?", (dead_pid(), job_id))
     create_app(config=config, store=store, registry=registry)  # a restart over the same database
     job = client.get(f"/jobs/{job_id}").json()
     assert job["status"] == "failed" and job["error"].startswith("interrupted")
+    assert client.get(f"/statements/{analysed_setup['id']}").json()["analysis_status"] == "failed"
     fake.release.set()
     client.app.state.runner.wait(job_id, timeout=10)
+
+
+def test_second_service_keeps_a_running_job(config, store, registry, client, fake, analysed_setup):
+    fake.release.clear()
+    job_id = client.post(f"/statements/{analysed_setup['id']}/analyze").json()["job_id"]
+    create_app(config=config, store=store, registry=registry)  # a second service while the first still runs it
+    assert client.get(f"/jobs/{job_id}").json()["status"] == "pending"
+    fake.answers = answer_for
+    fake.release.set()
+    client.app.state.runner.wait(job_id, timeout=10)
+    assert client.get(f"/jobs/{job_id}").json()["status"] == "done"
 
 
 def test_payload_from_uploaded_pdf_has_no_personal_data(rules_off, client, fake, analysed_setup):

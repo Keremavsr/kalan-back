@@ -5,11 +5,16 @@
   AI saving suggestions from aggregates (:mod:`kalan.ai.advice`). A failed statement is marked ``failed`` and the
   batch goes on; a failed suggestion step keeps the previous suggestions. Statements stored while a batch runs
   join it.
+
+Every pending job records the process that runs it; a heartbeat thread refreshes its ``heartbeat_at`` every
+:data:`HEARTBEAT_SECONDS` while it runs, so a second service on the same database leaves it alone
+(:meth:`kalan.store.Store.fail_interrupted_jobs`) and does not start a second batch next to it.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import uuid
 from collections.abc import Callable
@@ -19,15 +24,20 @@ from kalan.ai.prompt import InvalidModelOutputError, build_payload, build_prompt
 from kalan.store import Job, Store
 
 log = logging.getLogger("kalan.jobs")
+HEARTBEAT_SECONDS = 30.0
 
 
 class JobRunner:
-    def __init__(self, store: Store, timeout: float = DEFAULT_TIMEOUT) -> None:
+    def __init__(self, store: Store, timeout: float = DEFAULT_TIMEOUT,
+                 heartbeat_seconds: float = HEARTBEAT_SECONDS) -> None:
         self.store = store
         self.timeout = timeout
+        self.heartbeat_seconds = heartbeat_seconds
         self._threads: dict[str, threading.Thread] = {}
         self._lock = threading.Lock()
         self._batch_extra: dict[str, set[str]] = {}
+        self._beat: threading.Thread | None = None
+        self._beat_wake = threading.Event()
 
     # -- one statement ------------------------------------------------------------------------------
 
@@ -46,6 +56,24 @@ class JobRunner:
         thread = threading.Thread(target=target, args=args, daemon=True, name=f"kalan-{job_id}")
         self._threads[job_id] = thread
         thread.start()
+        if self._beat is None or not self._beat.is_alive():
+            self._beat = threading.Thread(target=self._heartbeat_loop, daemon=True, name="kalan-heartbeat")
+            self._beat.start()
+
+    def _heartbeat_loop(self) -> None:
+        """While this runner has jobs, tell the database every few seconds that their owner is alive."""
+        while True:
+            self._beat_wake.wait(self.heartbeat_seconds)
+            self._beat_wake.clear()
+            with self._lock:
+                running = list(self._threads)
+                if not running:
+                    self._beat = None
+                    return
+            try:
+                self.store.heartbeat(running)
+            except Exception as exc:  # a busy database must not end the heartbeat
+                log.warning("heartbeat failed: %s", type(exc).__name__)
 
     def wait(self, job_id: str, timeout: float | None = None) -> None:
         thread = self._threads.get(job_id)
@@ -128,6 +156,9 @@ class JobRunner:
             pending = self.store.latest_batch_job(pending_only=True)
             if pending is not None and pending.id in self._threads:
                 self._batch_extra.setdefault(pending.id, set()).update(also or [])
+                return pending
+            if pending is not None and pending.owner_pid != os.getpid() and self.store.job_alive(pending):
+                # Another service on the same database runs it; new statements join it there (status "none").
                 return pending
             todo = self.needs_model(include_uncategorised)
             for sid in also or []:

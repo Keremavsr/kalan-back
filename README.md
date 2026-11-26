@@ -8,7 +8,7 @@ pay in each of the coming months.
 All money math (installment schedules, totals, statement reconciliation) is done by plain code. An
 AI model, if you connect one, only suggests categories and writes commentary.
 
-This repository is the back end (Python). The web interface lives in the separate `kalan-front`
+This repository is the back end (Python). The web interface lives in the separate [kalan-front](https://github.com/Keremavsr/kalan-front)
 repository and talks to this service over HTTP only (see [docs/api.md](docs/api.md)).
 
 ## Privacy

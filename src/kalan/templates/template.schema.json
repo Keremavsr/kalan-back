@@ -704,5 +704,5 @@
   "title": "Template",
   "type": "object",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/kalan/kalan-back/templates/template.schema.json"
+  "$id": "https://raw.githubusercontent.com/Keremavsr/kalan-back/main/src/kalan/templates/template.schema.json"
 }

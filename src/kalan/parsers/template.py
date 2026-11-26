@@ -309,7 +309,7 @@ def load_template(path: str | Path) -> Template:
 def template_json_schema() -> dict[str, Any]:
     schema = Template.model_json_schema()
     schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    schema["$id"] = "https://github.com/kalan/kalan-back/templates/template.schema.json"
+    schema["$id"] = "https://raw.githubusercontent.com/Keremavsr/kalan-back/main/src/kalan/templates/template.schema.json"
     return schema
 
 

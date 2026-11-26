@@ -26,6 +26,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from kalan.amounts import months_between
+from kalan.cards import card_id
 from kalan.categories import categorize
 from kalan.models import Statement, Transaction
 from kalan.summary import attributed, ratio
@@ -138,6 +139,16 @@ def _charges(statements: list[Statement], loose: list[Transaction]) -> Charges:
     return out
 
 
+def _cards(statements: list[Statement]) -> dict[str, tuple[str, str | None]]:
+    """``{transaction id: (card id, card label)}`` of every statement row."""
+    out = {}
+    for st in statements:
+        card = (st.card_id or card_id(st.bank, st.card_last4), st.card_label)
+        for t in st.transactions:
+            out[t.id] = card
+    return out
+
+
 def _is_bill(merchant: str, category: str | None) -> bool:
     return category in BILL_CATEGORIES or (category not in NEVER_REGULAR and bool(_BILL_WORDS.search(fold(merchant))))
 
@@ -153,6 +164,7 @@ def regular_payments(
     ids whose expected amount a newer charge has shown are appended to ``cleared``."""
     flagged = model_recurring or set()
     expected = expected or {}
+    cards = _cards(statements)
     items = []
     for (merchant, currency), by_month in _charges(statements, loose).items():
         months = sorted(by_month)
@@ -203,8 +215,8 @@ def regular_payments(
             "expected_since": exp["since"] if exp else None,
             "monthly_amount": exp["amount"] if exp else last,
             "last_date": latest_tx.date.isoformat(),
-            "card_id": latest_tx.card_id,
-            "card_label": latest_tx.card_label,
+            "card_id": cards.get(latest_tx.id, (None, None))[0],
+            "card_label": cards.get(latest_tx.id, (None, None))[1],
         })
     return sorted(items, key=lambda i: (i["kind"] != "subscription", fold(i["merchant"]), i["currency"]))
 
@@ -249,6 +261,7 @@ def frequent_places(
 ) -> dict[str, Any]:
     """Places charged often that are no subscription or bill (see the module docstring)."""
     window = window_months(statements, loose, months)
+    cards = _cards(statements)
     regular_keys = {(fold(i["merchant"]), i["currency"]) for i in regular or []}
     rows: dict[str, list[tuple[str, Transaction]]] = defaultdict(list)
     names: dict[str, str] = {}
@@ -279,7 +292,7 @@ def frequent_places(
             "total": total,
             "monthly_average": _round(Decimal(total) / count),
             "last_date": txs[-1].date.isoformat(),
-            "card_ids": sorted({t.card_id for t in txs if t.card_id}),
+            "card_ids": sorted({cards[t.id][0] for t in txs if t.id in cards}),
         })
     items.sort(key=lambda i: (-i["monthly_average"], fold(i["merchant"])))
     return {"currency": currency, "window": {"months": window, "count": count}, "items": items}

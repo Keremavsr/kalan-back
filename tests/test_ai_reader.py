@@ -197,6 +197,8 @@ def test_api_fallback_reads_stores_and_drafts(client, fake, store):
     assert "SALDO ANTERIOR" in fake.prompts[0] and "5555 55" not in fake.prompts[0]
     listed = client.get("/statements").json()["items"][0]
     assert listed["needs_review"] is False
+    assert st["analysis_job_id"]  # a provider is selected: the new statement joins the AI batch
+    client.app.state.runner.wait(st["analysis_job_id"], 20)
 
     fake.answers = [TEMPLATE_YAML]
     draft = client.post(f"/statements/{st['id']}/template-draft")

@@ -1,3 +1,19 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/header-dark.png">
+    <img src="docs/brand/header-light.png" width="640" alt="kalan: the engine and command line of kalan.">
+  </picture>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Keremavsr/kalan-back/releases/latest"><img src="https://img.shields.io/github/v/release/Keremavsr/kalan-back?label=release&labelColor=181B26&color=515561" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-515561?labelColor=181B26" alt="Platform: Windows, macOS, Linux">
+  <img src="https://img.shields.io/badge/python-3.12%2B-515561?labelColor=181B26" alt="Python 3.12 or newer">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Keremavsr/kalan-back?label=licence&labelColor=181B26&color=515561" alt="Licence: MIT"></a>
+</p>
+
+<p align="center">Looking for the app? <a href="https://github.com/Keremavsr/kalan-front/releases/latest">Download kalan for Windows</a>.</p>
+
 # kalan (back end)
 
 kalan is a free, open source credit card tracker that runs on your own computer. Its focus is
@@ -190,6 +206,15 @@ Amounts accept any ISO 4217 currency and dates any day/month/year order.
 
 Test fixtures are synthetic. Never add a real statement to this repository.
 
+## Help kalan
+
+A template for your bank and fixes to the translations help most; [CONTRIBUTING.md](CONTRIBUTING.md) explains both.
+Bugs go to [issues](https://github.com/Keremavsr/kalan-back/issues/new/choose); security problems go through
+[SECURITY.md](SECURITY.md), not a public issue.
+
 ## Licence
 
-MIT, see [LICENSE](LICENSE).
+The code is MIT, see [LICENSE](LICENSE).
+
+The kalan name and logo are not licensed under MIT. Forks and redistributions under a different maintainer must use
+a different name and logo. See [NOTICE](NOTICE).

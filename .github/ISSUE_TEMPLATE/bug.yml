@@ -1,0 +1,38 @@
+name: Something broke
+description: A command or the API did not do what the README says. For an unsupported bank, use "Bank not supported".
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do **not** attach a statement or text copied from it. If the problem is with one statement, run
+        `kalan teshis <file.pdf>` and paste its anonymous report instead; read it once before pasting.
+  - type: textarea
+    id: ran
+    attributes:
+      label: What you ran
+      description: The command or the API call.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened instead
+      description: Error text or output, with personal details removed.
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: Your setup
+      description: Output of `kalan --version` and your operating system.
+      placeholder: kalan 0.1.0, Windows 11
+    validations:
+      required: true

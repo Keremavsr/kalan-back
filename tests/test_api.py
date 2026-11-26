@@ -106,6 +106,7 @@ def test_upload_and_read_statement(client):
     resp = upload(client, VB_PDFS[11])
     assert resp.status_code == 201, resp.text
     st = resp.json()
+    assert st.pop("analysis_job_id") is None  # no provider selected: no automatic analysis
     assert SUMMARY_KEYS | {"transactions", "interest_rates"} <= set(st)
     assert st["bank"] == "vakifbank" and st["card_last4"] == "0000"
     assert st["reconciliation"]["status"] == "ok"
@@ -248,9 +249,13 @@ def test_schedule_matches_build_schedule(client):
     for path in VB_PDFS[:12]:
         assert upload(client, path).status_code == 201
     got = client.get("/installments/schedule", params={"months": 12}).json()
-    expected = build_schedule([parse_pdf(p) for p in VB_PDFS[:12]], months=12).model_dump(mode="json")
+    built = build_schedule([parse_pdf(p) for p in VB_PDFS[:12]], months=12)
+    expected = built.with_labels({p.card_id: "VakıfBank Worldcard ··0000" for p in built.plans}).api_body()
     assert got == expected
-    assert {"currency", "months", "plans"} <= set(got)
+    assert {"currency", "months", "plans", "summary"} <= set(got)
+    assert got["summary"]["plan_count"] == len(got["plans"]) and got["summary"]["total_remaining"] == sum(
+        p["total_remaining"] for p in got["plans"])
+    assert all(p["card_label"] == "VakıfBank Worldcard ··0000" and p["closed"] is None for p in got["plans"])
     assert len(got["months"]) == 12
     assert len(client.get("/installments/schedule", params={"months": 3}).json()["months"]) == 3
     assert_error(client.get("/installments/schedule", params={"months": 0}), 422, "validation_error")
@@ -290,9 +295,14 @@ def test_subscriptions_endpoint(client):
     for d, amount in (("2026-07-05", 9999), ("2026-08-05", 9999), ("2026-09-05", 11999)):
         client.post("/transactions", json={"date": d, "description": "MUZIK SERVISI", "amount": amount,
                                            "currency": "TRY", "direction": "debit"})
-    items = client.get("/subscriptions").json()["items"]
-    assert items == [{"merchant": "MUZIK SERVISI", "amount_last": 11999, "amount_previous": 9999, "currency": "TRY",
-                      "months_seen": ["2026-07", "2026-08", "2026-09"], "price_change": "0.20"}]
+    body = client.get("/subscriptions").json()
+    old = ("merchant", "amount_last", "amount_previous", "currency", "months_seen", "price_change")
+    assert [{k: i[k] for k in old} for i in body["items"]] == [
+        {"merchant": "MUZIK SERVISI", "amount_last": 11999, "amount_previous": 9999, "currency": "TRY",
+         "months_seen": ["2026-07", "2026-08", "2026-09"], "price_change": "0.20"}]
+    item = body["items"][0]
+    assert item["kind"] == "subscription" and item["id"].startswith("sb_") and item["monthly_amount"] == 11999
+    assert body["totals"] == [{"currency": "TRY", "subscription": 11999, "bill": 0}]
 
 
 # -- CORS and Private Network Access --------------------------------------------------------------

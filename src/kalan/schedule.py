@@ -29,6 +29,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from kalan.amounts import add_months, month_key, months_between
+from kalan.cards import card_id
 from kalan.models import FixedCost, ManualInstallment, Statement, Transaction
 
 DEFAULT_MONTHS = 12
@@ -57,6 +58,8 @@ class ScheduleItem(BaseModel):
     index: int | None = None
     count: int | None = None
     breakdown: Breakdown | None = Field(default=None, description="null for plain purchases")
+    card_id: str | None = None
+    card_label: str | None = None
 
 
 class ScheduleMonth(BaseModel):
@@ -76,6 +79,15 @@ class PlanSummary(BaseModel):
     source: Literal["statement", "manual", "import"] = "statement"
     breakdown: Breakdown | None = Field(default=None, description="Parts of total_remaining; null for purchases")
     last_statement_id: str | None = None
+    card_id: str | None = None
+    card_label: str | None = None
+    total_count: int | None = None
+    paid_count: int | None = None
+    next_month: str | None = None
+    next_amount: int = 0
+    closed: Literal["user", "statement"] | None = None
+    closed_at: date | None = None
+    statement_id: str | None = Field(default=None, description="closed by statement: the newer statement")
 
 
 class FixedItem(BaseModel):
@@ -97,12 +109,35 @@ class FixedSeries(BaseModel):
     months: list[FixedMonth] = Field(default_factory=list)
 
 
+class ScheduleSummary(BaseModel):
+    total_remaining: int = 0
+    plan_count: int = 0
+    last_month: str | None = None
+
+
 class Schedule(BaseModel):
     currency: str
     start_month: str
     months: list[ScheduleMonth]
-    plans: list[PlanSummary]
+    plans: list[PlanSummary] = Field(description="Open plans only; closed ones are in closed_plans")
     fixed: FixedSeries = Field(default_factory=FixedSeries, description="Recurring fixed costs, never in months")
+    summary: ScheduleSummary = Field(default_factory=ScheduleSummary)
+    closed_plans: list[PlanSummary] = Field(default_factory=list)
+
+    def with_labels(self, labels: dict[str, str]) -> Schedule:
+        """Fill ``card_label`` of items and plans from ``{card_id: label}``."""
+        for m in self.months:
+            for i in m.items:
+                i.card_label = labels.get(i.card_id) if i.card_id else None
+        for p in [*self.plans, *self.closed_plans]:
+            p.card_label = labels.get(p.card_id) if p.card_id else None
+        return self
+
+    def api_body(self) -> dict[str, object]:
+        """HTTP shape: closed plans join ``plans`` after the open ones (v0.4.0)."""
+        body = self.model_dump(mode="json", exclude={"closed_plans"})
+        body["plans"] = body["plans"] + [p.model_dump(mode="json") for p in self.closed_plans]
+        return body
 
 
 def fixed_series(costs: list[FixedCost], window: list[str], currency: str) -> FixedSeries:
@@ -136,6 +171,7 @@ class PlanState:
     closed: bool
     components: dict[str, int] | None = None
     source: Literal["statement", "manual", "import"] = "statement"
+    card_id: str | None = None
 
 
 _CA_MARKER = re.compile(r"\s*\d{1,2}\s*\.\s*(Taksit Anap|BSMV|KKDF|Vade Fark\w*)\s*$", re.IGNORECASE)
@@ -183,6 +219,7 @@ def _state_from_rows(statement: Statement, plan_id: str, rows: list[Transaction]
         total_count=total_count,
         closed=closed,
         components=components,
+        card_id=card_id(statement.bank, statement.card_last4),
     )
 
 
@@ -252,11 +289,16 @@ def build_schedule(
     today: date | None = None,
     imported: list[ManualInstallment] | None = None,
     fixed_costs: list[FixedCost] | None = None,
+    closed_by_user: dict[str, date] | None = None,
 ) -> Schedule:
     """Project committed installments for ``months`` months starting at ``start_month``.
 
     ``start_month`` defaults to the month after the latest statement's cut-off (or the current month
     if there are no statements). Plans keep counting beyond the window in ``plans``.
+
+    Closed plans project nothing and are listed in ``closed_plans``: those in ``closed_by_user``
+    (``{plan_id: day closed}``) and those a newer statement of the same card shows without a row while an
+    installment was due on it (:func:`closed_by_statement`).
     """
     if months < 1:
         raise ValueError("months must be >= 1")
@@ -274,9 +316,15 @@ def build_schedule(
     window = [add_months(start_month, i) for i in range(months)]
     month_items: dict[str, list[ScheduleItem]] = {mk: [] for mk in window}
     plans: list[PlanSummary] = []
+    closed_plans: list[PlanSummary] = []
+    by_statement = closed_by_statement(statements, states)
+    user = closed_by_user or {}
 
     for s in sorted(states, key=lambda p: (p.month, p.description, p.plan_id)):
         if s.closed or s.remaining_count <= 0:
+            continue
+        if s.plan_id in user or s.plan_id in by_statement:
+            closed_plans.append(_closed_summary(s, user.get(s.plan_id), by_statement.get(s.plan_id)))
             continue
         future: list[tuple[str, int | None]] = []
         for i in range(1, s.remaining_count + 1):
@@ -292,7 +340,7 @@ def build_schedule(
                 month_items[mk].append(
                     ScheduleItem(
                         plan_id=s.plan_id, description=s.description, amount=s.amount_each, index=idx,
-                        count=s.total_count, breakdown=each_breakdown,
+                        count=s.total_count, breakdown=each_breakdown, card_id=s.card_id,
                     )
                 )
         plans.append(
@@ -307,6 +355,11 @@ def build_schedule(
                 source=s.source,
                 breakdown=each_breakdown.times(len(future)) if each_breakdown else None,
                 last_statement_id=s.statement_id,
+                card_id=s.card_id,
+                total_count=s.total_count,
+                paid_count=s.total_count - len(future) if s.total_count is not None else None,
+                next_month=future[0][0],
+                next_amount=s.amount_each,
             )
         )
 
@@ -319,4 +372,47 @@ def build_schedule(
                 month_items.items()],
         plans=sorted(plans, key=lambda p: (p.ends, p.plan_id)),
         fixed=fixed_series(fixed_costs or [], window, currency),
+        summary=ScheduleSummary(
+            total_remaining=sum(p.total_remaining for p in plans),
+            plan_count=len(plans),
+            last_month=max((p.ends for p in plans), default=None),
+        ),
+        closed_plans=sorted(closed_plans, key=lambda p: (p.closed or "", p.ends, p.plan_id)),
+    )
+
+
+def closed_by_statement(statements: list[Statement], states: list[PlanState]) -> dict[str, str]:
+    """``{plan_id: statement_id}``: a plan last seen in month M with r installments left whose card has a newer
+    statement for a month in M+1..M+r without any row of it. The statement is the first such one."""
+    months: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for st in statements:
+        months[card_id(st.bank, st.card_last4)].append((st.cut_off_month, st.id))
+    out = {}
+    for s in states:
+        if s.source != "statement" or s.card_id is None or s.closed or s.remaining_count <= 0:
+            continue
+        later = sorted((m, sid) for m, sid in months[s.card_id]
+                       if 1 <= months_between(s.month, m) <= s.remaining_count)
+        if later:
+            out[s.plan_id] = later[0][1]
+    return out
+
+
+def _closed_summary(s: PlanState, closed_at: date | None, statement_id: str | None) -> PlanSummary:
+    return PlanSummary(
+        plan_id=s.plan_id,
+        description=s.description,
+        kind=s.kind,
+        remaining_count=s.remaining_count,
+        amount_each=s.amount_each,
+        ends=s.month,
+        total_remaining=s.remaining_count * s.amount_each,
+        source=s.source,
+        last_statement_id=s.statement_id,
+        card_id=s.card_id,
+        total_count=s.total_count,
+        paid_count=s.total_count - s.remaining_count if s.total_count is not None else None,
+        closed="user" if closed_at is not None else "statement",
+        closed_at=closed_at,
+        statement_id=None if closed_at is not None else statement_id,
     )

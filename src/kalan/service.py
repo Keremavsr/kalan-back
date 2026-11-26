@@ -27,8 +27,9 @@ from kalan.alerts import Alert, compute_alerts
 from kalan.amounts import month_key
 from kalan.config import Config
 from kalan.imports import ImportFileError, Mapping, import_plans, parse_import
+from kalan.insights.cancellations import list_cancelled
 from kalan.insights.card_fee import find_card_fees, refund_letter_prompt
-from kalan.insights.context import current_schedule, rule_overrides
+from kalan.insights.context import current_schedule, expected_amounts, plan_closures, regular, rule_overrides
 from kalan.insights.early_payoff import payoff, payoff_overview
 from kalan.insights.export import ExportFormat, export
 from kalan.insights.fixed_match import fixed_cost_report, matched_transaction_ids
@@ -43,7 +44,7 @@ from kalan.redact import redact
 from kalan.schedule import Schedule
 from kalan.simulate import SimulationIn, simulate
 from kalan.store import DuplicateRuleError, DuplicateStatementError, Store
-from kalan.summary import attributed, monthly_summary, subscriptions
+from kalan.summary import attributed, monthly_summary
 from kalan.text import fold
 
 PDF_MAGIC = b"%PDF-"
@@ -353,13 +354,13 @@ class Kalan:
         )
 
     def subscriptions(self) -> list[dict[str, Any]]:
-        return subscriptions(self.store.all_statements(), self.store.loose_transactions(),
-                             self.store.model_recurring_ids())
+        """``GET /subscriptions`` items: subscriptions and bills with expected amounts."""
+        return regular(self.store)
 
     def alerts(self) -> list[Alert]:
         statements = self.store.all_statements()
-        subs = subscriptions(statements, self.store.loose_transactions(), self.store.model_recurring_ids())
-        return compute_alerts(statements, self.schedule(), subs)
+        return compute_alerts(statements, self.schedule(), regular(self.store),
+                              cancelled=list_cancelled(self.store), locale=self.store.get_settings().locale)
 
     def simulate(self, body: SimulationIn) -> dict[str, Any]:
         """``POST /simulate/installment``."""
@@ -433,8 +434,11 @@ class Kalan:
         }
 
     def forecast(self, include_fixed: bool = True) -> dict[str, Any]:
-        """``GET /insights/forecast``: open period, next statement forecast, backtest summary."""
-        return next_statement_forecast(**self._forecast_inputs(), include_fixed=include_fixed)
+        """``GET /insights/forecast``: open period, next statement forecast, backtest summary, rows per card."""
+        store = self.store
+        return next_statement_forecast(**self._forecast_inputs(), include_fixed=include_fixed,
+                                       closed_by_user=plan_closures(store), expected=expected_amounts(store),
+                                       locale=store.get_settings().locale)
 
     def forecast_backtest(self, include_fixed: bool = True) -> dict[str, Any]:
         """``GET /insights/forecast/backtest``."""

@@ -21,6 +21,7 @@ from kalan.amounts import add_months, months_between
 from kalan.models import Statement
 from kalan.schedule import Schedule
 from kalan.text import fold, normalize_merchant
+from kalan.texts import month_range, text
 
 Severity = Literal["info", "warning", "critical"]
 LIMIT_WARNING = 0.80
@@ -45,12 +46,17 @@ class Alert(BaseModel):
     message_key: str
     params: dict[str, Any] = Field(default_factory=dict)
     refs: Refs = Field(default_factory=Refs)
+    card_id: str | None = None
+    card_label: str | None = None
+    text: str | None = Field(default=None, description="Plain sentence in the settings locale, where kalan has one")
 
 
-def _alert(kind: str, severity: Severity, month: str, params: dict[str, Any], refs: Refs, *key: object) -> Alert:
+def _alert(kind: str, severity: Severity, month: str, params: dict[str, Any], refs: Refs, *key: object,
+           card: Statement | None = None) -> Alert:
     digest = hashlib.sha1("|".join(str(p) for p in (kind, month, *key)).encode("utf-8")).hexdigest()[:12]
     return Alert(id=f"al_{digest}", kind=kind, severity=severity, month=month, message_key=f"alert.{kind}",
-                 params=params, refs=refs)
+                 params=params, refs=refs, card_id=card.card_id if card else None,
+                 card_label=card.card_label if card else None)
 
 
 def _card(st: Statement) -> tuple[str, str]:
@@ -72,8 +78,10 @@ def compute_alerts(
     subscriptions: list[dict[str, Any]],
     today: date | None = None,
     cancelled: list[dict[str, Any]] | None = None,
+    locale: str | None = "tr",
 ) -> list[Alert]:
-    """``cancelled``: subscriptions the user marked as cancelled, ``[{"merchant", "cancelled_on"}]``."""
+    """``cancelled``: subscriptions the user marked as cancelled, ``[{"merchant", "cancelled_on"}]``.
+    ``subscriptions`` are the regular payments (:func:`kalan.regular.regular_payments`)."""
     today = today or date.today()
     out: list[Alert] = []
     latest = latest_per_card(statements)
@@ -87,7 +95,7 @@ def compute_alerts(
                  "kind": plan.kind},
                 Refs(plan_ids=[plan.plan_id], statement_ids=[plan.last_statement_id] if plan.last_statement_id else []),
                 plan.plan_id,
-            ))
+            ).model_copy(update={"card_id": plan.card_id, "card_label": plan.card_label}))
 
     for st in latest:
         month = st.cut_off_month
@@ -99,7 +107,7 @@ def compute_alerts(
                     "limit_high", "critical" if used >= 1 else "warning", month,
                     {"used_share": f"{used:.2f}", "statement_total": st.statement_total,
                      "credit_limit": st.credit_limit, "currency": st.currency},
-                    refs, st.id,
+                    refs, st.id, card=st,
                 ))
         for kind, alert_kind, severity in _CHARGE_KINDS:
             rows = [t for t in st.transactions if t.kind == kind and t.direction == "debit"]
@@ -107,7 +115,7 @@ def compute_alerts(
                 out.append(_alert(
                     alert_kind, severity, month,  # type: ignore[arg-type]
                     {"count": len(rows), "total": sum(t.amount for t in rows), "currency": st.currency},
-                    Refs(statement_ids=[st.id], transaction_ids=[t.id for t in rows]), st.id,
+                    Refs(statement_ids=[st.id], transaction_ids=[t.id for t in rows]), st.id, card=st,
                 ))
         foreign = [t for t in st.transactions if t.original_currency]
         if foreign:
@@ -115,7 +123,7 @@ def compute_alerts(
                 "foreign_currency", "info", month,
                 {"count": len(foreign), "currencies": sorted({t.original_currency or "" for t in foreign}),
                  "total": sum(t.amount for t in foreign), "currency": st.currency},
-                Refs(statement_ids=[st.id], transaction_ids=[t.id for t in foreign]), st.id,
+                Refs(statement_ids=[st.id], transaction_ids=[t.id for t in foreign]), st.id, card=st,
             ))
         days = (st.due_date - today).days
         if 0 <= days <= DUE_SOON_DAYS and st.statement_total > 0:
@@ -123,25 +131,15 @@ def compute_alerts(
                 "due_soon", "critical" if days <= 1 else "warning", month,
                 {"due_date": st.due_date.isoformat(), "days_left": days, "statement_total": st.statement_total,
                  "minimum_payment": st.minimum_payment, "currency": st.currency},
-                refs, st.id,
+                refs, st.id, card=st,
             ))
 
-    # Gaps in each card's monthly sequence of statements.
-    by_card: dict[tuple[str, str], dict[str, str]] = defaultdict(dict)
-    for st in statements:
-        by_card[_card(st)][st.cut_off_month] = st.id
-    for (bank, last4), months in sorted(by_card.items()):
-        seen = sorted(months)
-        for a, b in pairwise(seen):
-            for gap in range(1, months_between(a, b)):
-                missing = add_months(a, gap)
-                out.append(_alert(
-                    "missing_statement", "warning", missing, {"bank": bank, "card_last4": last4 or None},
-                    Refs(statement_ids=[months[a], months[b]]), bank, last4,
-                ))
+    out += _missing_statements(statements, locale)
 
     for sub in subscriptions:
         change = sub.get("price_change")
+        if sub.get("kind", "subscription") != "subscription" or sub.get("expected_amount") is not None:
+            continue
         if change is not None and float(change) > 0 and sub.get("months_seen"):
             month = sub["months_seen"][-1]
             out.append(_alert(
@@ -149,10 +147,35 @@ def compute_alerts(
                 {"merchant": sub["merchant"], "amount_previous": sub["amount_previous"],
                  "amount_last": sub["amount_last"], "price_change": change, "currency": sub["currency"]},
                 Refs(), sub["merchant"],
-            ))
+            ).model_copy(update={"card_id": sub.get("card_id"), "card_label": sub.get("card_label")}))
 
     out += _statement_overdue(latest, statements, today) + _charged_after_cancel(statements, cancelled or [])
     return sorted(out, key=lambda a: (_SEVERITY_ORDER[a.severity], a.month, a.kind, a.id))
+
+
+def _missing_statements(statements: list[Statement], locale: str | None) -> list[Alert]:
+    """One alert per card and gap between two stored statements, with the missing months as a range."""
+    by_card: dict[tuple[str, str], dict[str, Statement]] = defaultdict(dict)
+    for st in statements:
+        by_card[_card(st)][st.cut_off_month] = st
+    out = []
+    for (bank, last4), months in sorted(by_card.items()):
+        for a, b in pairwise(sorted(months)):
+            gap = [add_months(a, i) for i in range(1, months_between(a, b))]
+            if not gap:
+                continue
+            card = months[b]
+            label = card.card_label or bank
+            key = "alert.missing_statement.one" if len(gap) == 1 else "alert.missing_statement.many"
+            alert = _alert(
+                "missing_statement", "warning", gap[0],
+                {"bank": bank, "card_last4": last4 or None, "card": label, "from": gap[0], "to": gap[-1],
+                 "months": len(gap), "month_list": gap},
+                Refs(statement_ids=[months[a].id, card.id]), bank, last4, gap[0], card=card,
+            )
+            out.append(alert.model_copy(update={"text": text(key, locale, card=label,
+                                                             range=month_range(gap[0], gap[-1], locale))}))
+    return out
 
 
 def _statement_overdue(latest: list[Statement], statements: list[Statement], today: date) -> list[Alert]:
@@ -167,7 +190,7 @@ def _statement_overdue(latest: list[Statement], statements: list[Statement], tod
                 "statement_overdue", "warning", f"{nxt.year:04d}-{nxt.month:02d}",
                 {"bank": st.bank, "card_last4": st.card_last4, "expected_cut_off": nxt.isoformat(),
                  "days_overdue": (today - nxt).days},
-                Refs(statement_ids=[st.id]), st.bank, st.card_last4 or "", nxt,
+                Refs(statement_ids=[st.id]), st.bank, st.card_last4 or "", nxt, card=st,
             ))
     return out
 
@@ -189,7 +212,7 @@ def _charged_after_cancel(statements: list[Statement], cancelled: list[dict[str,
                     "charged_after_cancel", "critical", st.cut_off_month,
                     {"merchant": c["merchant"], "cancelled_on": c["cancelled_on"], "count": len(rows),
                      "total": sum(t.amount for t in rows), "currency": st.currency},
-                    Refs(statement_ids=[st.id], transaction_ids=[t.id for t in rows]), st.id, key,
+                    Refs(statement_ids=[st.id], transaction_ids=[t.id for t in rows]), st.id, key, card=st,
                 ))
     return out
 

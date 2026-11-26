@@ -12,7 +12,7 @@ from kalan.api.errors import ApiError
 from kalan.imports import import_plans
 from kalan.insights.cancellations import CancelledSubscription, add_cancelled, list_cancelled, remove_cancelled
 from kalan.insights.card_fee import find_card_fees, placeholders_kept, refund_letter_prompt
-from kalan.insights.context import current_schedule, rule_overrides
+from kalan.insights.context import current_schedule, expected_amounts, plan_closures, rule_overrides
 from kalan.insights.early_payoff import payoff, payoff_overview
 from kalan.insights.export import EXTENSIONS, MEDIA_TYPES, ExportFormat, export
 from kalan.insights.fixed_match import fixed_cost_report, matched_transaction_ids
@@ -131,7 +131,13 @@ def card_fee_draft(request: Request, tx_id: str) -> dict[str, Any]:
 
 @router.get("/which-card")
 def which_card(request: Request, date: date | None = None) -> dict[str, Any]:
-    return card_options(_store(request).all_statements(), today=date)
+    statements = _store(request).all_statements()
+    result = card_options(statements, today=date)
+    by_id = {s.id: s for s in statements}
+    for card in [*result["cards"], *([result["best"]] if result["best"] else [])]:
+        st = by_id.get(card["statement_id"])
+        card["card_id"], card["card_label"] = (st.card_id, st.card_label) if st else (None, None)
+    return result
 
 
 # -- 4. shareable installment load card -------------------------------------------------------------
@@ -166,8 +172,11 @@ def _forecast_inputs(store: Store) -> dict[str, Any]:
 
 
 @router.get("/forecast")
-def forecast(request: Request, include_fixed: bool = True) -> dict[str, Any]:
-    return next_statement_forecast(**_forecast_inputs(_store(request)), include_fixed=include_fixed)
+def forecast(request: Request, include_fixed: bool = True, locale: Literal["tr", "en"] | None = None) -> dict[str, Any]:
+    store = _store(request)
+    return next_statement_forecast(**_forecast_inputs(store), include_fixed=include_fixed,
+                                   closed_by_user=plan_closures(store), expected=expected_amounts(store),
+                                   locale=locale or store.get_settings().locale)
 
 
 @router.get("/forecast/backtest")

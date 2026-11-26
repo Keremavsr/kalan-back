@@ -26,19 +26,23 @@ from kalan.alerts import compute_alerts
 from kalan.amounts import month_key
 from kalan.api.errors import ApiError, error_response, install
 from kalan.api.insights import router as insights_router
+from kalan.api.overview import router as overview_router
+from kalan.api.overview import start_batch
 from kalan.config import Config
 from kalan.diagnose import as_text, diagnose
-from kalan.imports import ImportFileError, Mapping, import_plans, parse_import
+from kalan.imports import ImportFileError, Mapping, parse_import
 from kalan.insights.cancellations import list_cancelled
+from kalan.insights.context import current_schedule as store_schedule
+from kalan.insights.context import regular
 from kalan.models import Direction, FixedCost, InstallmentInfo, Locale, ManualInstallment, Statement, Transaction
 from kalan.parsers import ParseError, StatementParser, UnknownFormatError, all_parsers
 from kalan.pdf import PasswordError, extract_text
 from kalan.pipeline import parse_text
 from kalan.redact import redact
-from kalan.schedule import Schedule, build_schedule
+from kalan.schedule import Schedule
 from kalan.simulate import SimulationIn, simulate
 from kalan.store import DuplicateRuleError, DuplicateStatementError, Settings, Store
-from kalan.summary import attributed, monthly_summary, subscriptions
+from kalan.summary import attributed, monthly_summary
 from kalan.text import normalize_merchant
 
 log = logging.getLogger("kalan.api")
@@ -171,6 +175,17 @@ class UploadLimit:
 # -- app ------------------------------------------------------------------------------------------
 
 
+def fill_categories(store: Store) -> int:
+    """Built-in and user rules on stored rows that have no category yet (rules improve between versions)."""
+    rules = [categories.Rule.of(r["pattern"], r["category"]) for r in store.category_rules()]
+
+    def pick(tx: Transaction) -> str | None:
+        found = categories.categorize(tx, rules)
+        return found[0] if found is not None else None
+
+    return store.fill_missing_categories(pick)
+
+
 def create_app(
     config: Config | None = None,
     store: Store | None = None,
@@ -184,6 +199,9 @@ def create_app(
     interrupted = store.fail_interrupted_jobs()
     if interrupted:
         log.info("marked %d interrupted jobs as failed", interrupted)
+    filled = fill_categories(store)
+    if filled:
+        log.info("built-in rules categorised %d stored rows", filled)
 
     app = FastAPI(title="kalan", version=kalan.__version__, docs_url=None, redoc_url=None)
     app.state.store = store
@@ -191,6 +209,7 @@ def create_app(
     app.state.runner = runner
     app.state.config = config
     install(app)
+    app.include_router(overview_router)
     app.include_router(insights_router)
     cors: dict[str, Any] = {
         "allow_origins": config.cors_origins,
@@ -377,6 +396,9 @@ def create_app(
                            {"statement_id": dup.existing_id}) from None
         log.info("statement %s stored: %d transactions, reconciliation %s", saved.id, len(saved.transactions),
                  saved.reconciliation.status if saved.reconciliation else "none")
+        job_id = auto_analyse(saved.id)
+        if job_id is not None:
+            saved = saved.model_copy(update={"analysis_status": "pending"})
         if remember_password and password is not None:
             remembered = False
             if saved.parser_id != reader.PARSER_ID:  # the bank id of a fallback read is the model's guess
@@ -386,7 +408,17 @@ def create_app(
                 except pdf_passwords.KeyringUnavailableError:
                     log.info("pdf password not remembered: no keyring")
             response.headers[PASSWORD_REMEMBERED_HEADER] = "true" if remembered else "false"
-        return saved.model_dump(mode="json")
+        return {**saved.model_dump(mode="json"), "analysis_job_id": job_id}
+
+    def auto_analyse(statement_id: str) -> str | None:
+        """With a selected, available provider a new statement joins the AI batch; returns the job id."""
+        try:
+            adapter = selected_adapter()
+        except ApiError:
+            return None
+        job = start_batch(store, runner, adapter, include_uncategorised=False, also=[statement_id])
+        return job.id
+
 
     # -- category rules ---------------------------------------------------------------------------
 
@@ -633,27 +665,14 @@ def create_app(
 
     @app.get("/installments/schedule")
     def schedule(months: Annotated[int | None, Query(ge=1, le=60)] = None) -> dict[str, Any]:
-        return current_schedule(months).model_dump(mode="json")
+        return current_schedule(months).api_body()
 
     @app.post("/simulate/installment")
     def simulate_installment(body: SimulationIn) -> dict[str, Any]:
         return simulate(body, current_schedule(None))
 
     def current_schedule(months: int | None) -> Schedule:
-        statements = store.all_statements()
-        cut_off_day = max(statements, key=lambda s: s.period_end).period_end.day if statements else None
-        imported = import_plans(store.import_transactions())
-        result = build_schedule(
-            statements,
-            store.manual_plans(),
-            months=months or store.get_settings().months_ahead,
-            cut_off_day=cut_off_day,
-            imported=imported,
-            fixed_costs=store.fixed_costs(),
-        )
-        if not statements and not store.manual_plans() and not imported:
-            result.currency = store.get_settings().base_currency
-        return result
+        return store_schedule(store, months)
 
     @app.get("/summary/monthly")
     def summary(month: Annotated[str | None, Query(pattern=MONTH_PATTERN)] = None) -> dict[str, Any]:
@@ -664,16 +683,11 @@ def create_app(
             store.get_settings().base_currency,
         )
 
-    @app.get("/subscriptions")
-    def get_subscriptions() -> dict[str, Any]:
-        items = subscriptions(store.all_statements(), store.loose_transactions(), store.model_recurring_ids())
-        return {"items": items}
-
     @app.get("/alerts")
-    def get_alerts() -> dict[str, Any]:
+    def get_alerts(locale: Literal["tr", "en"] | None = None) -> dict[str, Any]:
         statements = store.all_statements()
-        subs = subscriptions(statements, store.loose_transactions(), store.model_recurring_ids())
-        alerts = compute_alerts(statements, current_schedule(None), subs, cancelled=list_cancelled(store))
+        alerts = compute_alerts(statements, current_schedule(None), regular(store), cancelled=list_cancelled(store),
+                                locale=locale or store.get_settings().locale)
         return {"items": [a.model_dump(mode="json") for a in alerts]}
 
     # -- model analysis ---------------------------------------------------------------------------
@@ -705,7 +719,18 @@ def create_app(
         job = store.get_job(job_id)
         if job is None:
             raise ApiError(404, "job_not_found", "No job with this id.", {"id": job_id})
-        return {"job_id": job.id, "statement_id": job.statement_id, "status": job.status, "error": job.error}
+        return job.body()
+
+    @app.post("/analysis/all", status_code=202)
+    def analysis_all() -> dict[str, Any]:
+        adapter = selected_adapter()
+        job = start_batch(store, runner, adapter)
+        return {"job_id": job.id, "kind": job.kind, "status": job.status, "total": job.total}
+
+    @app.get("/analysis/all")
+    def latest_analysis_all() -> dict[str, Any] | None:
+        job = store.latest_batch_job()
+        return None if job is None else job.body()
 
     @app.get("/statements/{statement_id}/analysis")
     def get_analysis(statement_id: str) -> dict[str, Any]:

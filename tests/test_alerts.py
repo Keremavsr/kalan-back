@@ -92,6 +92,8 @@ def test_api_alerts(client):
     for p in VB_PDFS[8:10]:
         assert upload(client, p).status_code == 201
     items = client.get("/alerts").json()["items"]
-    assert items and set(items[0]) == {"id", "kind", "severity", "month", "message_key", "params", "refs"}
+    assert items and set(items[0]) == {"id", "kind", "severity", "month", "message_key", "params", "refs",
+                                       "card_id", "card_label", "text"}
+    assert all(a["card_id"] and a["card_label"] for a in items)
     assert set(items[0]["refs"]) == {"statement_ids", "transaction_ids", "plan_ids"}
     assert len({a["id"] for a in items}) == len(items)

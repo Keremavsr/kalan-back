@@ -120,7 +120,8 @@ def _normalise_schedule(schedule: dict, ids: dict[str, str]) -> dict:
             "month": m["month"],
             "total": m["total"],
             "items": sorted(
-                ({**{k: v for k, v in it.items() if k != "plan_id"}, "plan_key": key(it["plan_id"])}
+                ({**{k: v for k, v in it.items() if k not in ("plan_id", "card_id", "card_label")},
+                  "plan_key": key(it["plan_id"])}
                  for it in m["items"]),
                 key=lambda x: x["plan_key"],
             ),

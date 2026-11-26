@@ -77,9 +77,11 @@ def test_subscription_ignores_installments_fees_and_busy_merchants():
 def test_model_flag_makes_a_single_charge_a_subscription():
     t = tx("2026-09-03", "BULUT DEPOLAMA", 4999)
     assert subscriptions([], [t]) == []
-    assert subscriptions([], [t], {t.id}) == [{
+    (item,) = subscriptions([], [t], {t.id})
+    assert {k: item[k] for k in ("merchant", "amount_last", "amount_previous", "currency", "months_seen",
+                                 "price_change", "kind")} == {
         "merchant": "BULUT DEPOLAMA", "amount_last": 4999, "amount_previous": None, "currency": "TRY",
-        "months_seen": ["2026-09"], "price_change": None}]
+        "months_seen": ["2026-09"], "price_change": None, "kind": "subscription"}
 
 
 def test_subscription_uses_statement_month():

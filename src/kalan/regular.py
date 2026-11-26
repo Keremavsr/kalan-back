@@ -5,9 +5,9 @@ A merchant's charges are grouped by statement month (the monthly summary rule). 
 * **bill**: electricity, water, natural gas, internet, phone (category ``utilities`` / ``telecom`` or a bill
   word in the name), charged in at least two consecutive months. The amount may change freely; up to two
   charges in a month are added up.
-* **subscription**: exactly one charge a month in at least two consecutive months, each amount close to the
-  month before: within 25 % for a known subscription service (category ``subscriptions`` or ``insurance``),
-  within 5 % for anything else that is allowed.
+* **subscription**: exactly one charge a month in at least two consecutive months. A known subscription service
+  (category ``subscriptions`` or ``insurance``) may change its price by any amount; anything else that is allowed
+  must stay within 5 % of the month before, apart from one price change of at most 50 % next to a steady month.
 * never regular: groceries, dining, fuel and the other everyday categories in :data:`NEVER_REGULAR`. Those, and
   places whose amount moves, are **frequent places** when they come back often enough.
 
@@ -39,8 +39,9 @@ NEVER_REGULAR = frozenset({
     "groceries", "dining", "fuel", "transport", "shopping", "clothing", "electronics", "home", "travel",
     "cash", "fees", "taxes", "transfers",
 })
-KNOWN_TOLERANCE = Decimal("0.25")
+KNOWN_TOLERANCE: Decimal | None = None  # a known service may change its price by any amount
 STEADY_TOLERANCE = Decimal("0.05")
+PRICE_CHANGE_LIMIT = Decimal("0.50")
 BILL_MAX_PER_MONTH = 2
 _BILL_WORDS = re.compile(r"(?<![a-z0-9])(elektrik|dogalgaz|dogal gaz|su idaresi|fatura|faturasi|internet|gsm|"
                          r"telekom|edas|enerji)(?![a-z0-9])")
@@ -68,7 +69,9 @@ def _category(txs: list[Transaction]) -> str | None:
     return found[0] if found else None
 
 
-def _within(previous: int, current: int, tolerance: Decimal) -> bool:
+def _within(previous: int, current: int, tolerance: Decimal | None) -> bool:
+    if tolerance is None:
+        return True
     if previous == 0:
         return current == 0
     return abs(Decimal(current - previous)) / Decimal(previous) <= tolerance
@@ -87,6 +90,36 @@ def _latest_run(months: list[str], ok: Callable[[str], bool], step: Callable[[st
         else:
             run = [m]
         if len(run) >= 2:
+            best = list(run)
+    return best
+
+
+def _steady_run(months: list[str], amounts: dict[str, int], tolerance: Decimal | None) -> list[str]:
+    """Latest run (length >= 2) of consecutive single-charge months for a subscription.
+
+    With a ``tolerance`` each step stays within it, except one price change of at most 50 % (up or down) when the
+    run also has a steady step: ``99,99 / 99,99 / 119,99`` is a subscription with a price rise, ``450 / 610`` is not.
+    """
+    best: list[str] = []
+    run: list[str] = []
+    jumps = steady = 0
+    for m in months:
+        if m not in amounts:
+            run, jumps, steady = [], 0, 0
+            continue
+        if run and months_between(run[-1], m) == 1:
+            prev, cur = amounts[run[-1]], amounts[m]
+            if _within(prev, cur, tolerance):
+                run.append(m)
+                steady += 1
+            elif jumps == 0 and _within(prev, cur, PRICE_CHANGE_LIMIT):
+                run.append(m)
+                jumps += 1
+            else:
+                run, jumps, steady = [m], 0, 0
+        else:
+            run, jumps, steady = [m], 0, 0
+        if len(run) >= 2 and (jumps == 0 or steady > 0):
             best = list(run)
     return best
 
@@ -114,8 +147,10 @@ def regular_payments(
     loose: list[Transaction],
     model_recurring: set[str] | None = None,
     expected: dict[str, dict[str, Any]] | None = None,
+    cleared: list[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Subscriptions and bills, sorted by kind then merchant. ``expected``: ``{id: {"amount", "since"}}``."""
+    """Subscriptions and bills, sorted by kind then merchant. ``expected``: ``{id: {"amount", "since"}}``;
+    ids whose expected amount a newer charge has shown are appended to ``cleared``."""
     flagged = model_recurring or set()
     expected = expected or {}
     items = []
@@ -138,8 +173,7 @@ def regular_payments(
             kind = "subscription"
             tolerance = KNOWN_TOLERANCE if category in KNOWN_SUBSCRIPTION else STEADY_TOLERANCE
             single = {m: by_month[m][0].amount for m in months if len(by_month[m]) == 1}
-            run = _latest_run(months, lambda m, one=single: m in one,
-                              lambda a, b, one=single, tol=tolerance: _within(one[a], one[b], tol))
+            run = _steady_run(months, single, tolerance)
             if len(run) >= 2:
                 seen, last, prev = run, single[run[-1]], single[run[-2]]
                 last_rows = by_month[run[-1]]
@@ -153,6 +187,8 @@ def regular_payments(
         sid = subscription_id(merchant, currency)
         latest_tx = max(last_rows, key=lambda t: t.date)
         exp = _active_expected(expected.get(sid), all_rows) if kind == "subscription" else None
+        if sid in expected and exp is None and cleared is not None:
+            cleared.append(sid)
         items.append({
             "id": sid,
             "kind": kind,
@@ -185,12 +221,6 @@ def _active_expected(entry: dict[str, Any] | None, rows: list[Transaction]) -> d
     if any(t.date > since and expected_matches(t.amount, entry["amount"]) for t in rows):
         return None  # a newer charge shows the new amount: the flag clears itself
     return entry
-
-
-def stale_expected(items: list[dict[str, Any]], expected: dict[str, dict[str, Any]]) -> list[str]:
-    """Ids of stored expected amounts that no longer apply (cleared by a charge, or no such item)."""
-    active = {i["id"] for i in items if i["expected_amount"] is not None}
-    return [k for k in expected if k not in active]
 
 
 def totals(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -255,4 +285,4 @@ def frequent_places(
     return {"currency": currency, "window": {"months": window, "count": count}, "items": items}
 
 
-__all__ = ["EXPECTED_KEY", "frequent_places", "regular_payments", "stale_expected", "subscription_id", "totals"]
+__all__ = ["EXPECTED_KEY", "frequent_places", "regular_payments", "subscription_id", "totals"]

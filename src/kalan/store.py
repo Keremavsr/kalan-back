@@ -60,6 +60,17 @@ class Job(BaseModel):
     error: str | None = None
     created_at: str
     finished_at: str | None = None
+    kind: Literal["statement", "analysis_all"] = "statement"
+    done: int = 0
+    total: int = 1
+    failed: int = 0
+    phase: Literal["statements", "suggestions", "done"] = "statements"
+
+    def body(self) -> dict[str, Any]:
+        """``GET /jobs/{id}`` shape."""
+        return {"job_id": self.id, "kind": self.kind, "statement_id": self.statement_id or None,
+                "status": self.status, "phase": self.phase, "done": self.done, "total": self.total,
+                "failed": self.failed, "error": self.error}
 
 
 def now_iso() -> str:
@@ -402,6 +413,21 @@ class Store:
         with self._tx() as con:
             return con.execute("DELETE FROM category_rules WHERE id = ?", (rule_id,)).rowcount > 0
 
+    def fill_missing_categories(self, pick: Callable[[Transaction], str | None]) -> int:
+        """Set ``pick(tx)`` on stored rows that still have no category (start-up pass for better rules)."""
+        changed = 0
+        with self._tx() as con:
+            for table in ("transactions", "import_transactions"):
+                rows = con.execute(f"SELECT id, data, category, category_source FROM {table} "
+                                   "WHERE category IS NULL").fetchall()
+                for row in rows:
+                    category = pick(self._tx_from_row(row))
+                    if category is not None:
+                        con.execute(f"UPDATE {table} SET category = ?, category_source = 'rule' WHERE id = ?",
+                                    (category, row["id"]))
+                        changed += 1
+        return changed
+
     def recategorize(self, pick: Callable[[Transaction], str | None]) -> int:
         """Set ``pick(tx)`` as the category of every stored row the user did not categorise by hand.
 
@@ -482,8 +508,9 @@ class Store:
     def finish_job(self, job_id: str, status: JobStatus, error: str | None = None) -> None:
         with self._tx() as con:
             con.execute(
-                "UPDATE jobs SET status = ?, error = ?, finished_at = ? WHERE id = ?",
-                (status, error, now_iso(), job_id),
+                "UPDATE jobs SET status = ?, error = ?, finished_at = ?, phase = 'done', "
+                "done = CASE WHEN kind = 'statement' AND ? = 'done' THEN 1 ELSE done END WHERE id = ?",
+                (status, error, now_iso(), status, job_id),
             )
             if status == "failed":
                 con.execute(
@@ -497,10 +524,40 @@ class Store:
             row = con.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
             return None if row is None else Job.model_validate(dict(row))
 
+    def create_batch_job(self, job_id: str, provider: str, total: int) -> Job:
+        job = Job(id=job_id, statement_id="", provider=provider, status="pending", created_at=now_iso(),
+                  kind="analysis_all", total=total)
+        with self._tx() as con:
+            con.execute(
+                "INSERT INTO jobs (id, statement_id, provider, status, created_at, kind, total) "
+                "VALUES (?, '', ?, 'pending', ?, 'analysis_all', ?)",
+                (job.id, provider, job.created_at, total),
+            )
+        return job
+
+    def update_job(self, job_id: str, **fields: int | str) -> None:
+        """Progress of a batch job: any of ``done``, ``total``, ``failed``, ``phase``."""
+        allowed = {"done", "total", "failed", "phase"}
+        sets = [k for k in fields if k in allowed]
+        if not sets:
+            return
+        with self._tx() as con:
+            con.execute(f"UPDATE jobs SET {', '.join(f'{k} = ?' for k in sets)} WHERE id = ?",
+                        (*(fields[k] for k in sets), job_id))
+
+    def latest_batch_job(self, pending_only: bool = False) -> Job | None:
+        sql = "SELECT * FROM jobs WHERE kind = 'analysis_all'"
+        if pending_only:
+            sql += " AND status = 'pending'"
+        with self._connect() as con:
+            row = con.execute(sql + " ORDER BY created_at DESC, rowid DESC LIMIT 1").fetchone()
+            return None if row is None else Job.model_validate(dict(row))
+
     def pending_job_for(self, statement_id: str) -> Job | None:
         with self._connect() as con:
             row = con.execute(
-                "SELECT * FROM jobs WHERE statement_id = ? AND status = 'pending' ORDER BY created_at DESC LIMIT 1",
+                "SELECT * FROM jobs WHERE statement_id = ? AND status = 'pending' AND kind = 'statement' "
+                "ORDER BY created_at DESC LIMIT 1",
                 (statement_id,),
             ).fetchone()
             return None if row is None else Job.model_validate(dict(row))

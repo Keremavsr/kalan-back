@@ -99,7 +99,7 @@ def _steady_run(months: list[str], amounts: dict[str, int], tolerance: Decimal |
     """Latest run (length >= 2) of consecutive single-charge months for a subscription.
 
     With a ``tolerance`` each step stays within it, except one price change of at most 50 % (up or down) when the
-    run also has a steady step: ``99,99 / 99,99 / 119,99`` is a subscription with a price rise, ``450 / 610`` is not.
+    run also has a steady step: ``99,99 / 99,99 / 123,45`` is a subscription with a price rise, ``450 / 610`` is not.
     """
     best: list[str] = []
     run: list[str] = []
